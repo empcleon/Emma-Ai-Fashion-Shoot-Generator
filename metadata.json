@@ -1,0 +1,5 @@
+{
+  "name": "Emma AI Fashion Shoot Generator",
+  "description": "An application that allows users to generate a series of editorial photographs from an image of a model and an outfit. The user uploads two images, and the app automatically generates four deliverables: a full-body shot, a detail shot of the garment, an urban editorial photo, and a rural editorial photo.",
+  "requestFramePermissions": []
+}
