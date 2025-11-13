@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import type { GenerationType, UploadedFile, GeneratedImage, ClosetItem, ModelMeasurements, AccessorySuggestion, ImageInput } from './types';
 import { GenerationTypeEnum, ClosetCategoryEnum, ClosetCategory } from './types';
@@ -17,6 +18,7 @@ import { CloseIcon } from './components/icons/CloseIcon';
 import { SpinnerIcon } from './components/icons/SpinnerIcon';
 import { fullBodyPrompts } from './lib/prompts';
 import { validatePrompt } from './lib/promptValidator';
+import { vintedMasterFront, vintedMasterBack, vintedSpecialized } from './lib/vintedPrompts';
 
 
 const initialGeneratedImages: GeneratedImage[] = [
@@ -55,27 +57,7 @@ const initialGeneratedImages: GeneratedImage[] = [
     {
         id: GenerationTypeEnum.POSE_VINTED_FRONT,
         title: 'Pose Vinted (Front)',
-        prompt: `**Primary Goal:** Create a professional, anonymous e-commerce photo for a platform like Vinted, focusing exclusively on the garment.
-
-**Subject & Garment:**
-- Generate a full-body photograph of a female model wearing the garment from the second reference image.
-- The model has a natural, relaxed, standing pose suitable for showcasing clothing.
-- The garment fits perfectly with realistic fabric texture, drape, and wrinkles. Skin texture on visible areas (neck, arms, legs) is natural and human-like.
-
-**CRITICAL FRAMING INSTRUCTION:**
-- The final image composition MUST BE TIGHTLY FRAMED from the base of the neck down to the feet.
-- The head and face must be completely excluded from the final shot due to this specific framing choice, which is intended to ensure the model's anonymity.
-- Imagine a photographer aiming their camera viewfinder so the top of the frame starts at the model's collarbones and the bottom of the frame is below her feet.
-
-**Photography Style:**
-- **Lighting:** Bright, soft, and even professional studio lighting that eliminates harsh shadows.
-- **Background:** A clean, seamless, light grey (#f0f0f0) or off-white studio backdrop.
-- **Quality:** Ultra-realistic, high-resolution, with sharp focus on the garment. The image should look like it was taken with a professional DSLR camera.
-
-**AVOID:**
-- Do not show any part of the model's face.
-- Avoid harsh shadows or distracting background elements.
-- The result should be a photograph, not a 3D render or illustration.`,
+        prompt: vintedMasterFront,
         src: null,
         status: 'pending',
         chatHistory: []
@@ -83,27 +65,7 @@ const initialGeneratedImages: GeneratedImage[] = [
     {
         id: GenerationTypeEnum.POSE_VINTED_BACK,
         title: 'Pose Vinted (Back)',
-        prompt: `**Primary Goal:** Create a professional, anonymous BACK VIEW e-commerce photo for a platform like Vinted, focusing exclusively on the garment.
-
-**Subject & Garment:**
-- Generate a full-body photograph of a female model from the BACK, wearing the garment from the second reference image.
-- The model has a natural, relaxed, standing pose as seen from behind.
-- The garment fits perfectly with realistic fabric texture, drape, and wrinkles. Skin texture on visible areas (neck, back, arms) is natural and human-like.
-
-**CRITICAL FRAMING INSTRUCTION:**
-- The final image composition MUST BE TIGHTLY FRAMED from the base of the neck down to the feet.
-- The head and face must be completely excluded from the final shot due to this specific framing choice, ensuring anonymity.
-- Imagine a photographer aiming their camera so the top of the frame starts at the model's shoulders/base of the neck.
-
-**Photography Style:**
-- **Lighting:** Bright, soft, and even professional studio lighting, consistent with a front-view shot.
-- **Background:** A clean, seamless, light grey (#f0f0f0) or off-white studio backdrop.
-- **Quality:** Ultra-realistic, high-resolution, with sharp focus on the back details of the garment. The image should look like it was taken with a professional DSLR camera.
-
-**AVOID:**
-- Do not show any part of the model's face.
-- Avoid harsh shadows or distracting background elements.
-- The result should be a photograph, not a 3D render or illustration.`,
+        prompt: vintedMasterBack,
         src: null,
         status: 'pending',
         chatHistory: []
@@ -255,6 +217,14 @@ const shoeSwapOptions = {
     'sandals': { name: 'Sandals', promptInstruction: 'simple, elegant flat sandals' },
 };
 
+const vintedTemplates = {
+    'generic': { name: 'Genérico' },
+    'dress': { name: 'Vestido' },
+    'top': { name: 'Top/Blusa' },
+    'pants': { name: 'Pantalón' },
+    'jacket': { name: 'Chaqueta' },
+};
+
 
 /**
  * Extracts a JSON string from a text that might contain a markdown code block.
@@ -304,10 +274,11 @@ const App: React.FC = () => {
     const [customFullBodyPrompt, setCustomFullBodyPrompt] = useState(fullBodyPrompts.front.ultra);
     const [customFullBodyBackPrompt, setCustomFullBodyBackPrompt] = useState(fullBodyPrompts.back.ultra);
     const [customVirtualTryOnPrompt, setCustomVirtualTryOnPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.VIRTUAL_TRY_ON)?.prompt ?? '');
-    const [customVintedFrontPrompt, setCustomVintedFrontPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.POSE_VINTED_FRONT)?.prompt ?? '');
-    const [customVintedBackPrompt, setCustomVintedBackPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.POSE_VINTED_BACK)?.prompt ?? '');
+    const [customVintedFrontPrompt, setCustomVintedFrontPrompt] = useState(vintedMasterFront);
+    const [customVintedBackPrompt, setCustomVintedBackPrompt] = useState(vintedMasterBack);
     const [finalFullBodyPrompt, setFinalFullBodyPrompt] = useState('');
     const [finalFullBodyBackPrompt, setFinalFullBodyBackPrompt] = useState('');
+    const [activeVintedTemplate, setActiveVintedTemplate] = useState('generic');
 
 
     // --- START: Detailed Styling State ---
@@ -652,6 +623,19 @@ const App: React.FC = () => {
         setCustomFullBodyPrompt(fullBodyPrompts.front[promptQuality]);
         setCustomFullBodyBackPrompt(fullBodyPrompts.back[promptQuality]);
     }, [promptQuality]);
+
+    const handleVintedTemplateSelect = (templateKey: string) => {
+        setActiveVintedTemplate(templateKey);
+        if (templateKey === 'generic') {
+            setCustomVintedFrontPrompt(vintedMasterFront);
+        } else {
+            // FIX: The value in vintedSpecialized is the prompt string itself, not an object with a 'front' property.
+            setCustomVintedFrontPrompt(vintedSpecialized[templateKey as keyof typeof vintedSpecialized]);
+        }
+        // Always use the master back prompt as there are no specialized back prompts
+        setCustomVintedBackPrompt(vintedMasterBack);
+        setActiveStyle('custom');
+    };
 
 
     const handleSaveEdit = (id: GenerationType, newSrc: string) => {
@@ -1581,20 +1565,41 @@ Return only the newly generated image reflecting this change.`;
                                     onChange={setCustomVirtualTryOnPrompt}
                                     validation={virtualTryOnPromptValidation}
                                 />
-                                <PromptEditor
-                                    id="vinted-front-prompt"
-                                    label="Pose Vinted (Front) - Base"
-                                    value={customVintedFrontPrompt}
-                                    onChange={setCustomVintedFrontPrompt}
-                                    validation={vintedFrontPromptValidation}
-                                />
-                                <PromptEditor
-                                    id="vinted-back-prompt"
-                                    label="Pose Vinted (Back) - Base"
-                                    value={customVintedBackPrompt}
-                                    onChange={setCustomVintedBackPrompt}
-                                    validation={vintedBackPromptValidation}
-                                />
+
+                                <div className="md:col-span-2 space-y-4 p-4 bg-zinc-900/50 rounded-lg border border-zinc-700">
+                                    <h4 className="text-md font-medium text-zinc-300 mb-3 text-center">Plantillas de Prompt para Vinted</h4>
+                                    <div className="flex justify-center flex-wrap gap-2">
+                                        {Object.entries(vintedTemplates).map(([key, { name }]) => (
+                                            <button
+                                                key={key}
+                                                onClick={() => handleVintedTemplateSelect(key)}
+                                                className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-md transition-colors duration-200 ${
+                                                    activeVintedTemplate === key
+                                                        ? 'bg-purple-600 text-white'
+                                                        : 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300'
+                                                }`}
+                                            >
+                                                {name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
+                                        <PromptEditor
+                                            id="vinted-front-prompt"
+                                            label="Pose Vinted (Front) - Base"
+                                            value={customVintedFrontPrompt}
+                                            onChange={setCustomVintedFrontPrompt}
+                                            validation={vintedFrontPromptValidation}
+                                        />
+                                        <PromptEditor
+                                            id="vinted-back-prompt"
+                                            label="Pose Vinted (Back) - Base"
+                                            value={customVintedBackPrompt}
+                                            onChange={setCustomVintedBackPrompt}
+                                            validation={vintedBackPromptValidation}
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -1670,7 +1675,7 @@ Return only the newly generated image reflecting this change.`;
             {showInstallBanner && (
                 <div className="fixed bottom-4 right-4 z-50 animate-fade-in-up">
                     <div className="bg-indigo-600 text-white rounded-lg shadow-2xl p-4 flex items-center gap-4">
-                        <svg xmlns="http://www.w.org/2000/svg" className="h-8 w-8 text-indigo-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-indigo-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                         <div>
                             <p className="font-semibold">Instalar App</p>
                             <p className="text-sm text-indigo-200">Añadir a pantalla de inicio para acceso rápido.</p>
