@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import type { GenerationType, UploadedFile, GeneratedImage, ClosetItem, ModelMeasurements, AccessorySuggestion, ImageInput } from './types';
 import { GenerationTypeEnum, ClosetCategoryEnum, ClosetCategory } from './types';
@@ -131,6 +132,14 @@ Generate a cinematic, ultra-realistic, full-body editorial photograph of a fashi
         id: GenerationTypeEnum.SILHOUETTE_TRY_ON,
         title: 'Prueba en Maniquí (Largo Exacto)',
         prompt: "Genera un maniquí a medida con IA y superpone la prenda con su largo 100% exacto. Este proceso híbrido combina la IA para el realismo del cuerpo y un escalado matemático para la precisión de la prenda.",
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
+     {
+        id: GenerationTypeEnum.PERSONALIZED_TRY_ON,
+        title: 'Prueba en Maniquí Personalizado',
+        prompt: "You are an expert digital stylist. Your task is to perform a high-fidelity virtual try-on. The first image is a photorealistic, custom-proportioned mannequin. The second image is a garment. Your goal is to realistically 'dress' the mannequin with the garment from the second image. Isolate the garment from its background and fit it perfectly to the mannequin's body, conforming to its curves and creating realistic draping, folds, shadows, and highlights. The final result must look like the mannequin is actually wearing the garment, maintaining the mannequin's original pose and studio setting.",
         src: null,
         status: 'pending',
         chatHistory: []
@@ -270,6 +279,10 @@ const App: React.FC = () => {
     const [isAppLoaded, setIsAppLoaded] = useState(false);
     const [outfitCategory, setOutfitCategory] = useState<ClosetCategory | null>(null);
 
+    // Phase 1 State: Personalized Mannequin
+    const [personalMannequin, setPersonalMannequin] = useState<UploadedFile | null>(null);
+    const [isGeneratingMannequin, setIsGeneratingMannequin] = useState<boolean>(false);
+
     // Phase 2 State: Custom prompts for editor
     const [customFullBodyPrompt, setCustomFullBodyPrompt] = useState(fullBodyPrompts.front.ultra);
     const [customFullBodyBackPrompt, setCustomFullBodyBackPrompt] = useState(fullBodyPrompts.back.ultra);
@@ -355,6 +368,10 @@ const App: React.FC = () => {
             if (savedMeasurements) {
                 setModelMeasurements(JSON.parse(savedMeasurements));
             }
+            const savedMannequin = localStorage.getItem('personalMannequin');
+            if (savedMannequin) {
+                setPersonalMannequin(JSON.parse(savedMannequin));
+            }
         } catch (error) {
             console.error("Failed to load data from localStorage:", error);
         } finally {
@@ -418,6 +435,19 @@ const App: React.FC = () => {
             console.error("Failed to save closet to localStorage:", error);
         }
     }, [closetItems, isAppLoaded]);
+
+    useEffect(() => {
+        if (!isAppLoaded) return;
+        try {
+            if (personalMannequin) {
+                localStorage.setItem('personalMannequin', JSON.stringify(personalMannequin));
+            } else {
+                localStorage.removeItem('personalMannequin');
+            }
+        } catch (error) {
+            console.error("Failed to save personal mannequin to localStorage:", error);
+        }
+    }, [personalMannequin, isAppLoaded]);
     
     const handleAddAccessorySlot = () => {
         if (accessoryImages.length < 3) {
@@ -699,10 +729,12 @@ const App: React.FC = () => {
                 return validAccessories.length > 0;
             case GenerationTypeEnum.SILHOUETTE_TRY_ON:
                 return !!modelImage && !!outfitImage && !!garmentLengthCm;
+            case GenerationTypeEnum.PERSONALIZED_TRY_ON:
+                return !!personalMannequin && !!outfitImage;
             default:
                 return false;
         }
-    }, [modelImage, outfitImage, backOutfitImage, accessoryImages, garmentLengthCm]);
+    }, [modelImage, outfitImage, backOutfitImage, accessoryImages, garmentLengthCm, personalMannequin]);
     
     const buildFullBodyPrompt = useCallback((basePrompt: string, isBackView: boolean) => {
         const characteristicsInstruction = getModelCharacteristics();
@@ -765,6 +797,53 @@ const App: React.FC = () => {
         setFinalFullBodyBackPrompt(buildFullBodyPrompt(customFullBodyBackPrompt, true));
     }, [buildFullBodyPrompt, customFullBodyPrompt, customFullBodyBackPrompt]);
 
+    const handleGenerateMannequin = async () => {
+        setIsGeneratingMannequin(true);
+        setError(null);
+        try {
+            const characteristics = getModelCharacteristics();
+            const prompt = `TECHNICAL MANNEQUIN GENERATION FOR VIRTUAL TRY-ON:
+    Generate a high-quality, photorealistic, anonymous fashion mannequin. This mannequin will be used as a base for a virtual try-on, so anatomical and proportional accuracy are critical.
+
+    **Mannequin Specification:**
+    - **Pose:** The mannequin must be in a STRICTLY neutral, symmetrical, forward-facing museum pose. The arms should be straight down at the sides, not touching the body. The feet should be together.
+    - **CRUCIAL:** Absolutely no rotation, tilting, or leaning of the head, shoulders, or hips. The figure must be perfectly vertical and centered.
+    - **Appearance:** The mannequin must be headless (cropped smoothly at the neck). It should have a smooth, matte grey finish, avoiding any reflections or highlights that could interfere with the overlay.
+
+    **Anatomy & Proportions:**
+    - The mannequin's form and silhouette MUST be based on these exact proportions: ${characteristics}.
+    - The goal is a realistic but clearly artificial figure suitable for a precise virtual try-on.
+
+    **Environment & Lighting:**
+    - **CRUCIAL:** The lighting must be perfectly flat, even, shadowless studio lighting, as if from a ring flash or a completely diffuse light source. There should be NO directional shadows on the body or on the background.
+    - The background must be a seamless, clean, minimalist, solid light grey color (#f0f0f0).
+
+    **Output Format:**
+    - The final image must be a full-body shot, ensuring the feet are visible at the bottom of the frame. Any cropping will disrupt the scaling calculations.
+    - The aspect ratio must be ${aspectRatio}.
+    `;
+            const mannequinSrc = await generateImage(prompt, []); // text-to-image
+            
+            const mimeType = mannequinSrc.match(/data:(.*);base64,/)?.[1] ?? 'image/png';
+            const base64 = mannequinSrc.split(',')[1];
+
+            const mannequinFile: UploadedFile = {
+                file: new File([], 'personal-mannequin.png', { type: mimeType }),
+                preview: mannequinSrc,
+                base64: base64,
+                mimeType: mimeType
+            };
+            
+            setPersonalMannequin(mannequinFile);
+
+        } catch (err) {
+            handleApiError(err, 'Failed to generate personal mannequin.');
+        } finally {
+            setIsGeneratingMannequin(false);
+        }
+    };
+
+
     const generateSingleImage = useCallback(async (imageInfo: GeneratedImage) => {
         const validAccessories = accessoryImages.filter((img): img is UploadedFile => !!img);
 
@@ -801,6 +880,10 @@ const App: React.FC = () => {
                     break;
                 case GenerationTypeEnum.ACCESSORY_DETAIL:
                      sourceImagesForAPI = [validAccessories[0]];
+                    break;
+                case GenerationTypeEnum.PERSONALIZED_TRY_ON:
+                    // These are guarded by getIsGenerationPossible
+                    sourceImagesForAPI = [personalMannequin!, outfitImage!];
                     break;
             }
         }
@@ -840,7 +923,7 @@ const App: React.FC = () => {
             } else {
                  let basePrompt = imageInfo.prompt;
                 // Fallback for other types that might need model/styling info
-                const modelBasedTypes = [GenerationTypeEnum.VIRTUAL_TRY_ON, GenerationTypeEnum.URBAN, GenerationTypeEnum.RURAL, GenerationTypeEnum.POSE_VINTED_FRONT, GenerationTypeEnum.POSE_VINTED_BACK];
+                const modelBasedTypes = [GenerationTypeEnum.VIRTUAL_TRY_ON, GenerationTypeEnum.URBAN, GenerationTypeEnum.RURAL, GenerationTypeEnum.POSE_VINTED_FRONT, GenerationTypeEnum.POSE_VINTED_BACK, GenerationTypeEnum.PERSONALIZED_TRY_ON];
                 if(modelBasedTypes.includes(imageInfo.id)) {
                     const characteristicsInstruction = getModelCharacteristics();
                     const fidelityInstruction = modelFidelityOptions[modelFidelity as keyof typeof modelFidelityOptions].promptInstruction;
@@ -864,12 +947,16 @@ const App: React.FC = () => {
                             .map(inst => `- ${inst.trim()}`)
                             .join('\n');
                     }
+
+                    // For PERSONALIZED_TRY_ON, we don't need fidelity instructions, as it uses the mannequin.
+                    const finalFidelityInstruction = imageInfo.id !== GenerationTypeEnum.PERSONALIZED_TRY_ON ? fidelityInstruction : '';
+
                     prompt = `
 **MAIN TASK:**
 ${basePrompt}
 
 **MODEL & POSE INSTRUCTIONS:**
-${fidelityInstruction}
+${finalFidelityInstruction}
 ${characteristicsInstruction}
 
 **STYLING & GARMENT MODIFICATIONS:**
@@ -899,7 +986,7 @@ ${finalStylingInstructions}
     }, [
         modelImage, outfitImage, backOutfitImage, accessoryImages, aspectRatio, modelMeasurements, modelFidelity, 
         garmentLength, garmentFit, fixedAccessory, belt, garmentLengthCm, getIsGenerationPossible, outfitCategory,
-        finalFullBodyPrompt, finalFullBodyBackPrompt, buildFullBodyPrompt
+        finalFullBodyPrompt, finalFullBodyBackPrompt, buildFullBodyPrompt, personalMannequin
     ]);
 
 
@@ -1387,6 +1474,50 @@ Return only the newly generated image reflecting this change.`;
                              </div>
                         </div>
 
+                        {/* NEW SECTION: PERSONALIZED MANNEQUIN */}
+                        <div className="mt-8 border-t border-zinc-700 pt-8">
+                            <h3 className="text-xl font-semibold text-center mb-2 text-zinc-200">✨ Maniquí Personalizado 2.5D</h3>
+                            <p className="text-center text-sm text-zinc-400 max-w-2xl mx-auto mb-6">
+                                Genera un maniquí con tus medidas exactas. Se usará para la "Prueba en Maniquí Personalizado", ofreciendo un resultado mucho más preciso y seguro que el "Virtual Try-On" estándar.
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center max-w-2xl mx-auto">
+                                <div className="md:col-span-1">
+                                    <div className="aspect-w-3 aspect-h-4 bg-zinc-900/50 rounded-lg flex items-center justify-center text-zinc-500 overflow-hidden border border-zinc-700">
+                                        {isGeneratingMannequin ? (
+                                            <div className="flex flex-col items-center justify-center h-full">
+                                                <SpinnerIcon className="w-8 h-8 text-indigo-400" />
+                                                <p className="text-xs mt-2">Creando...</p>
+                                            </div>
+                                        ) : personalMannequin ? (
+                                            <img src={personalMannequin.preview} alt="Personalized Mannequin" className="object-contain w-full h-full" />
+                                        ) : (
+                                            <div className="text-center p-4">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                                <span className="text-sm mt-2 block">Tu maniquí aparecerá aquí</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="md:col-span-2 text-center">
+                                    <p className="text-zinc-400 mb-4">
+                                        Introduce tus medidas en la sección "Model Details" y pulsa el botón para generar tu maniquí. Este paso solo es necesario una vez (se guardará para futuras sesiones).
+                                    </p>
+                                    <button
+                                        onClick={handleGenerateMannequin}
+                                        disabled={isGeneratingMannequin || isLoading}
+                                        className="w-full max-w-xs px-6 py-3 bg-teal-600 text-white font-semibold rounded-lg shadow-lg hover:bg-teal-500 disabled:bg-zinc-600 disabled:cursor-not-allowed transition-colors duration-200"
+                                    >
+                                        {isGeneratingMannequin ? (
+                                            <span className="flex items-center justify-center">
+                                                <SpinnerIcon className="w-5 h-5 mr-2" />
+                                                Generando Maniquí...
+                                            </span>
+                                        ) : personalMannequin ? 'Volver a Generar Maniquí' : 'Generar mi Maniquí'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                          <div className="mt-8 border-t border-zinc-700 pt-8">
                             <h3 className="text-lg font-semibold text-center mb-4 text-zinc-200">Detalles de la Prenda (para Maniquí)</h3>
                             <div className="max-w-xs mx-auto">
@@ -1606,14 +1737,14 @@ Return only the newly generated image reflecting this change.`;
                         <div className="mt-8 text-center flex justify-center items-center gap-4">
                             <button
                                 onClick={() => setIsVintedModalOpen(true)}
-                                disabled={isLoading || isAnalyzing || isSuggesting || isSwappingShoes}
+                                disabled={isLoading || isAnalyzing || isSuggesting || isSwappingShoes || isGeneratingMannequin}
                                 className="px-10 py-4 bg-purple-600 text-white font-semibold rounded-lg shadow-lg hover:bg-purple-500 disabled:bg-zinc-600 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-300 ease-in-out"
                             >
                                 Asistente Vinted
                             </button>
                             <button
                                 onClick={handleGenerate}
-                                disabled={!modelImage || (!outfitImage && !backOutfitImage) || isLoading || isAnalyzing || isSuggesting || isSwappingShoes}
+                                disabled={!modelImage || (!outfitImage && !backOutfitImage) || isLoading || isAnalyzing || isSuggesting || isSwappingShoes || isGeneratingMannequin}
                                 className="px-10 py-4 bg-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:bg-indigo-500 disabled:bg-zinc-600 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-300 ease-in-out transform hover:scale-105 disabled:scale-100"
                             >
                                 {isLoading ? 'Generating All...' : 'Generate Photoshoot'}

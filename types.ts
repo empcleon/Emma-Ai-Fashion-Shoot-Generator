@@ -21,6 +21,7 @@ export enum GenerationTypeEnum {
     SILHOUETTE_TRY_ON = 'SILHOUETTE_TRY_ON',
     POSE_VINTED_FRONT = 'POSE_VINTED_FRONT',
     POSE_VINTED_BACK = 'POSE_VINTED_BACK',
+    PERSONALIZED_TRY_ON = 'PERSONALIZED_TRY_ON',
 }
 
 export type GenerationType = GenerationTypeEnum;
