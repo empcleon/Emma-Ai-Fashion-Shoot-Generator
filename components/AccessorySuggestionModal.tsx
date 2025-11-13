@@ -1,4 +1,3 @@
-
 import React from 'react';
 import type { AccessorySuggestion } from '../types';
 import { CloseIcon } from './icons/CloseIcon';

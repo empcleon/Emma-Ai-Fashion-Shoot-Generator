@@ -1,8 +1,8 @@
 
 
-
 import { GoogleGenAI, Modality, GenerateContentResponse, HarmCategory, HarmBlockThreshold } from "@google/genai";
-import type { ModelMeasurements, MedidasPrenda, AnalisisMedidas, AnalisisVisual } from '../types';
+// Fix: Import ImageInput from the centralized types file.
+import type { ModelMeasurements, MedidasPrenda, AnalisisMedidas, AnalisisVisual, ImageInput } from '../types';
 import { GarmentConditionEnum } from '../types';
 
 if (!process.env.API_KEY) {
@@ -14,249 +14,199 @@ const imageGenerationModel = 'gemini-2.5-flash-image';
 const textGenerationModel = 'gemini-2.5-flash';
 
 
-export interface ImageInput {
-    base64: string;
-    mimeType: string;
-}
-
-// --- Start of unified queuing logic ---
+// --- Start of queue logic ---
 type QueuedRequest<T> = {
     apiCall: () => Promise<T>;
     resolve: (value: T | PromiseLike<T>) => void;
     reject: (reason?: any) => void;
 };
 
-const apiRequestQueue: QueuedRequest<any>[] = [];
-let isProcessingApi = false;
-// To prevent all 429 errors, we serialize all API calls and use the most restrictive
-// rate limit (5 RPM for the image model). This is 12 seconds per request.
-// We use 12.5 seconds to be safe.
-const API_RATE_LIMIT_DELAY = 12500; 
+const requestQueue: QueuedRequest<any>[] = [];
+let isProcessingQueue = false;
+// A delay between API calls to stay within the free tier limits.
+const API_CALL_DELAY = 15000; 
 
-const processApiQueue = async () => {
-    if (isProcessingApi || apiRequestQueue.length === 0) {
+const processQueue = async () => {
+    if (requestQueue.length === 0) {
+        isProcessingQueue = false;
         return;
     }
-    isProcessingApi = true;
-    const { apiCall, resolve, reject } = apiRequestQueue.shift()!;
+
+    isProcessingQueue = true;
+    const { apiCall, resolve, reject } = requestQueue.shift()!;
+    
     try {
         const result = await apiCall();
         resolve(result);
     } catch (error) {
         reject(error);
-    } finally {
-        setTimeout(() => {
-            isProcessingApi = false;
-            processApiQueue();
-        }, API_RATE_LIMIT_DELAY);
+        
+        // Check for quota errors to stop the queue
+        const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+        if (errorMessage.includes('RESOURCE_EXHAUSTED') || errorMessage.includes('429')) {
+            console.warn('API quota exhausted. Clearing pending generation requests.');
+            
+            // Reject all remaining requests in the queue
+            while(requestQueue.length > 0) {
+                const queuedItem = requestQueue.shift();
+                queuedItem?.reject(new Error('Request cancelled: API quota limit reached.'));
+            }
+            
+            isProcessingQueue = false;
+            return; // Stop processing
+        }
+    }
+    
+    // Continue with the next item after the delay, unless the queue was cleared
+    if (isProcessingQueue) {
+        setTimeout(processQueue, API_CALL_DELAY);
     }
 };
 
-const addToApiQueue = <T>(apiCall: () => Promise<T>): Promise<T> => {
-    return new Promise<T>((resolve, reject) => {
-        apiRequestQueue.push({ apiCall, resolve, reject });
-        if (!isProcessingApi) {
-            processApiQueue();
+const addToQueue = <T>(apiCall: () => Promise<T>): Promise<T> => {
+    return new Promise((resolve, reject) => {
+        requestQueue.push({ apiCall, resolve, reject });
+        if (!isProcessingQueue) {
+            processQueue();
         }
     });
 };
-// --- End of unified queuing logic ---
+// --- End of queue logic ---
 
-
-// --- Start of new retry logic ---
-const callGeminiWithRetry = async <T extends GenerateContentResponse>(
-    apiCall: () => Promise<T>,
-    maxRetries = 3,
-    initialDelay = 5000 // Start with a 5-second delay for the first retry
-): Promise<T> => {
-    let attempt = 0;
-    while (attempt < maxRetries) {
+const callGeminiApiForImage = (prompt: string, images: ImageInput[]): Promise<string> => {
+     return addToQueue(async () => {
         try {
-            return await apiCall();
-        } catch (error) {
-            const isRateLimitError = error instanceof Error && 
-                (error.message.includes('429') || error.message.includes('RESOURCE_EXHAUSTED'));
+            const imageParts = images.map(image => ({
+                inlineData: {
+                    data: image.base64,
+                    mimeType: image.mimeType,
+                },
+            }));
 
-            if (isRateLimitError && attempt < maxRetries - 1) {
-                const delay = initialDelay * Math.pow(2, attempt); // 5s, 10s
-                console.warn(
-                    `API rate limit exceeded. Retrying in ${delay / 1000}s... (Attempt ${attempt + 1}/${maxRetries})`
-                );
-                await new Promise(resolve => setTimeout(resolve, delay));
-                attempt++;
+            const textPart = { text: prompt };
+            
+            const response = await ai.models.generateContent({
+                    model: imageGenerationModel,
+                    contents: {
+                        parts: [...imageParts, textPart],
+                    },
+                    config: {
+                        responseModalities: [Modality.IMAGE],
+                        safetySettings: [
+                            {
+                                category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+                                threshold: HarmBlockThreshold.BLOCK_NONE,
+                            },
+                            {
+                                category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                                threshold: HarmBlockThreshold.BLOCK_NONE,
+                            },
+                            {
+                                category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                                threshold: HarmBlockThreshold.BLOCK_NONE,
+                            },
+                            {
+                                category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                                threshold: HarmBlockThreshold.BLOCK_NONE,
+                            },
+                        ],
+                    },
+                });
+            
+            const candidate = response.candidates?.[0];
+            
+            if (!candidate) {
+                 const promptFeedback = response.promptFeedback;
+                 let reason = "Unknown reason";
+                 if (promptFeedback?.blockReason) {
+                     reason = `Prompt was blocked due to: ${promptFeedback.blockReason}`;
+                 }
+                 throw new Error(`The request was blocked and no content was generated. ${reason}`);
+            }
+
+            const imagePart = candidate.content?.parts?.find(part => part.inlineData);
+
+            if (imagePart?.inlineData) {
+                const base64ImageBytes = imagePart.inlineData.data;
+                return `data:${imagePart.inlineData.mimeType};base64,${base64ImageBytes}`;
             } else {
-                // Non-retriable error or max retries reached
-                console.error(`API call failed after ${attempt + 1} attempts.`, error);
-                throw error;
-            }
-        }
-    }
-    // This should not be reachable due to the throw in the loop, but it satisfies TypeScript
-    throw new Error(`Exceeded maximum API retries after ${maxRetries} attempts.`);
-};
-// --- End of new retry logic ---
-
-
-const callGeminiApiForImage = async (prompt: string, images: ImageInput[]): Promise<string> => {
-     try {
-        const imageParts = images.map(image => ({
-            inlineData: {
-                data: image.base64,
-                mimeType: image.mimeType,
-            },
-        }));
-
-        const textPart = { text: prompt };
-
-        const response = await callGeminiWithRetry(() => ai.models.generateContent({
-            model: imageGenerationModel,
-            contents: {
-                parts: [...imageParts, textPart],
-            },
-            config: {
-                responseModalities: [Modality.IMAGE],
-                safetySettings: [
-                    {
-                        category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-                        threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                    },
-                    {
-                        category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                        threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                    },
-                    {
-                        category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                        threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                    },
-                    {
-                        category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                        threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                    },
-                ],
-            },
-        }));
-        
-        const candidate = response.candidates?.[0];
-        
-        if (!candidate) {
-             const promptFeedback = response.promptFeedback;
-             let reason = "Unknown reason";
-             if (promptFeedback?.blockReason) {
-                 reason = `Prompt was blocked due to: ${promptFeedback.blockReason}`;
-             }
-             throw new Error(`The request was blocked and no content was generated. ${reason}`);
-        }
-
-        const imagePart = candidate.content?.parts?.find(part => part.inlineData);
-
-        if (imagePart?.inlineData) {
-            const base64ImageBytes = imagePart.inlineData.data;
-            return `data:${imagePart.inlineData.mimeType};base64,${base64ImageBytes}`;
-        } else {
-            let errorMessage = "No image was generated by the API.";
-            const finishReason = candidate.finishReason;
-            
-            if (finishReason && finishReason !== 'STOP') {
-                if (finishReason === 'SAFETY' || finishReason === 'IMAGE_OTHER') {
-                    errorMessage = "The image could not be generated due to safety filters. This can happen with images of people. Please try a different reference image or adjust the prompt.";
-                } else {
-                    errorMessage += ` The process stopped because: ${finishReason}.`;
+                let errorMessage = "No image was generated by the API.";
+                const finishReason = candidate.finishReason;
+                
+                if (finishReason && finishReason !== 'STOP') {
+                    if (finishReason === 'SAFETY' || finishReason === 'IMAGE_OTHER') {
+                        errorMessage = "The image could not be generated due to safety filters. This can happen with images of people. Please try a different reference image or adjust the prompt.";
+                    } else if (finishReason === 'IMAGE_RECITATION') {
+                        errorMessage = "Image generation failed because the result was too similar to a known image. Please try using a different input image or modify your prompt to be more unique.";
+                    } else {
+                        errorMessage += ` The process stopped because: ${finishReason}.`;
+                    }
                 }
-            }
 
-            const textPart = candidate.content?.parts?.find(part => part.text);
-            if (textPart?.text) {
-                errorMessage += ` The model responded with: "${textPart.text.trim()}"`;
-            }
-            
-            console.error("Image generation/processing failed. Full API response:", JSON.stringify(response, null, 2));
-            throw new Error(errorMessage);
-        }
-
-    } catch (error) {
-        console.error('Error calling Gemini API:', error);
-        if (error instanceof Error) {
-            // Do not re-wrap our own errors.
-            if (error.message.startsWith('API call failed.')) {
-                throw error;
-            }
-
-            let message = error.message;
-            // The error message itself might be a JSON string. Let's try to parse it.
-            try {
-                const parsedJson = JSON.parse(message);
-                if (parsedJson.error && parsedJson.error.message) {
-                    message = parsedJson.error.message;
+                const textPart = candidate.content?.parts?.find(part => part.text);
+                if (textPart?.text) {
+                    errorMessage += ` The model responded with: "${textPart.text.trim()}"`;
                 }
-            } catch (e) {
-                // It wasn't a JSON string, so we'll just use the message as-is.
+                
+                console.error("Image generation/processing failed. Full API response:", JSON.stringify(response, null, 2));
+                throw new Error(errorMessage);
             }
-            
-            throw new Error(`API call failed. Reason: ${message}`);
+
+        } catch (error) {
+            console.error('Error calling Gemini API:', error);
+            throw error;
         }
-        throw new Error('API call failed due to an unknown error.');
-    }
+    });
 };
 
-const callGeminiApiForText = async (prompt: string, images: ImageInput[]): Promise<string> => {
-    try {
-        const imageParts = images.map(image => ({
-            inlineData: {
-                data: image.base64,
-                mimeType: image.mimeType,
-            },
-        }));
+const callGeminiApiForText = (prompt: string, images: ImageInput[]): Promise<string> => {
+    return addToQueue(async () => {
+        try {
+            const imageParts = images.map(image => ({
+                inlineData: {
+                    data: image.base64,
+                    mimeType: image.mimeType,
+                },
+            }));
 
-        const textPart = { text: prompt };
+            const textPart = { text: prompt };
 
-        const response = await callGeminiWithRetry(() => ai.models.generateContent({
-            model: textGenerationModel,
-            contents: {
-                parts: [...imageParts, textPart],
-            },
-        }));
-        
-        return response.text.trim();
+            const response = await ai.models.generateContent({
+                    model: textGenerationModel,
+                    contents: {
+                        parts: [...imageParts, textPart],
+                    },
+                });
+            
+            return response.text.trim();
 
-    } catch (error) {
-        console.error('Error calling Gemini API for text:', error);
-        if (error instanceof Error) {
-            let message = error.message;
-             // The error message itself might be a JSON string. Let's try to parse it.
-            try {
-                const parsedJson = JSON.parse(message);
-                if (parsedJson.error && parsedJson.error.message) {
-                    message = parsedJson.error.message;
-                }
-            } catch (e) {
-                // It wasn't a JSON string, so we'll just use the message as-is.
-            }
-            throw new Error(`API text call failed. Reason: ${message}`);
+        } catch (error) {
+            console.error('Error calling Gemini API for text:', error);
+            throw error;
         }
-        throw new Error('API text call failed due to an unknown error.');
-    }
+    });
 };
 
 export const categorizeImage = async (image: ImageInput): Promise<string> => {
     const categories = "Top, Bottom, Dress, Outerwear, Shoes, Accessory";
     const prompt = `Analyze the main clothing item or accessory in this image. Classify it into ONE of the following categories: ${categories}. Respond with ONLY the single category name (e.g., "Top", "Dress", "Accessory").`;
-    return addToApiQueue(() => callGeminiApiForText(prompt, [image]));
+    return callGeminiApiForText(prompt, [image]);
 };
 
 export const getStyleAnalysis = async (prompt: string, images: ImageInput[]): Promise<string> => {
-    return addToApiQueue(() => callGeminiApiForText(prompt, images));
+    return callGeminiApiForText(prompt, images);
 };
 
 export const getAccessorySuggestions = async (prompt: string, images: ImageInput[]): Promise<string> => {
-    return addToApiQueue(() => callGeminiApiForText(prompt, images));
+    return callGeminiApiForText(prompt, images);
 };
 
 export const generateImage = async (prompt: string, images: ImageInput[]): Promise<string> => {
-    return addToApiQueue(() => callGeminiApiForImage(prompt, images));
+    return callGeminiApiForImage(prompt, images);
 };
 
 export const processImage = async (prompt: string, images: ImageInput[]): Promise<string> => {
-    return addToApiQueue(() => callGeminiApiForImage(prompt, images));
+    return callGeminiApiForImage(prompt, images);
 };
 
 
@@ -298,7 +248,7 @@ Devuelve JSON:
 }
 `;
 
-    const jsonResponse = await addToApiQueue(() => callGeminiApiForText(prompt, [image]));
+    const jsonResponse = await callGeminiApiForText(prompt, [image]);
     const cleanedJson = extractJson(jsonResponse);
 
     try {
@@ -321,7 +271,7 @@ Devuelve JSON:
 
 export const generateAnonymizedImage = async (image: ImageInput): Promise<string> => {
     const prompt = "Please take this image of a person and apply a strong, artistic blur effect only to their face, making it completely unrecognizable. The clothing and the rest of the body must remain in sharp focus. If no face is visible, blur the top 25% of the image to ensure anonymity. The output should be a photorealistic image.";
-    return addToApiQueue(() => callGeminiApiForImage(prompt, [image]));
+    return callGeminiApiForImage(prompt, [image]);
 };
 
 export const generateInfographic = async (flatLayImage: ImageInput, medidas: MedidasPrenda, info: { marca: string, talla: string }): Promise<string> => {
@@ -344,5 +294,5 @@ export const generateInfographic = async (flatLayImage: ImageInput, medidas: Med
         - Talla: ${info.talla}
     4.  The final output must be a single, high-quality JPEG image with a 1:1 square aspect ratio. The background should be a clean, neutral light grey. Do not add any other text or elements.`;
     
-    return addToApiQueue(() => callGeminiApiForImage(prompt, [flatLayImage]));
+    return callGeminiApiForImage(prompt, [flatLayImage]);
 };

@@ -18,11 +18,19 @@ export enum GenerationTypeEnum {
     URBAN = 'URBAN',
     RURAL = 'RURAL',
     ACCESSORY_DETAIL = 'ACCESSORY_DETAIL',
+    SILHOUETTE_TRY_ON = 'SILHOUETTE_TRY_ON',
+    POSE_VINTED_FRONT = 'POSE_VINTED_FRONT',
+    POSE_VINTED_BACK = 'POSE_VINTED_BACK',
 }
 
 export type GenerationType = GenerationTypeEnum;
 
-export type ImageStatus = 'pending' | 'loading' | 'done' | 'error';
+export type ImageStatus = 'pending' | 'queued' | 'loading' | 'done' | 'error';
+
+export interface ChatMessage {
+    author: 'user' | 'model';
+    text: string;
+}
 
 export interface GeneratedImage {
     id: GenerationType;
@@ -30,6 +38,8 @@ export interface GeneratedImage {
     prompt: string;
     src: string | null;
     status: ImageStatus;
+    chatHistory?: ChatMessage[];
+    error?: string;
 }
 
 export enum ClosetCategoryEnum {
@@ -62,6 +72,12 @@ export interface AccessorySuggestion {
     type: 'shoes' | 'handbag' | 'jewelry';
     description: string;
     imageSrc: string;
+}
+
+// Fix: Add ImageInput interface to be used across the application.
+export interface ImageInput {
+    base64: string;
+    mimeType: string;
 }
 
 // --- Vinted Assistant Specific Types ---

@@ -1,11 +1,12 @@
-
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import type { GeneratedImage } from '../types';
 import { GenerationTypeEnum } from '../types';
 import { SpinnerIcon } from './icons/SpinnerIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
 import { RedoIcon } from './icons/RedoIcon';
 import { SparklesIcon } from './icons/SparklesIcon';
+import { ChatIcon } from './icons/ChatIcon';
+import ImageChat from './ImageChat';
 
 interface GeneratedImageCardProps extends GeneratedImage {
     onEdit: () => void;
@@ -13,9 +14,11 @@ interface GeneratedImageCardProps extends GeneratedImage {
     onGenerate: () => void;
     onSuggestAccessories: () => void;
     isGenerationPossible: boolean;
+    onSendMessage: (message: string) => void;
 }
 
-const GeneratedImageCard: React.FC<GeneratedImageCardProps> = ({ id, title, src, status, onEdit, onRegenerate, onGenerate, onSuggestAccessories, isGenerationPossible }) => {
+const GeneratedImageCard: React.FC<GeneratedImageCardProps> = ({ id, title, src, status, chatHistory = [], error, onEdit, onRegenerate, onGenerate, onSuggestAccessories, isGenerationPossible, onSendMessage }) => {
+    const [isChatOpen, setIsChatOpen] = useState(false);
 
     const handleDownload = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
@@ -42,6 +45,13 @@ const GeneratedImageCard: React.FC<GeneratedImageCardProps> = ({ id, title, src,
 
     const renderContent = () => {
         switch (status) {
+            case 'queued':
+                return (
+                    <div className="flex flex-col items-center justify-center h-full">
+                        <SpinnerIcon className="w-10 h-10 text-zinc-500" />
+                        <p className="mt-2 text-sm text-zinc-500">En cola...</p>
+                    </div>
+                );
             case 'loading':
                 return (
                     <div className="flex flex-col items-center justify-center h-full">
@@ -70,6 +80,7 @@ const GeneratedImageCard: React.FC<GeneratedImageCardProps> = ({ id, title, src,
                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <p className="mt-2 text-sm text-red-400">Error al generar</p>
+                        {error && <p className="mt-1 text-xs text-red-300 bg-red-900/30 px-2 py-1 rounded max-w-full truncate">{error}</p>}
                         <button 
                             onClick={(e) => handleAction(e, onGenerate)} 
                             disabled={!isGenerationPossible}
@@ -101,12 +112,20 @@ const GeneratedImageCard: React.FC<GeneratedImageCardProps> = ({ id, title, src,
     };
 
     return (
-        <div className="aspect-w-3 aspect-h-4 group">
-            <div className="w-full h-full bg-zinc-800 rounded-xl overflow-hidden border border-zinc-700 shadow-lg">
+        <div className="bg-zinc-800 rounded-xl border border-zinc-700 shadow-lg flex flex-col group">
+            <div className="aspect-w-3 aspect-h-4">
                 <div className="relative w-full h-full">
                     {renderContent()}
                     {status === 'done' && src && (
                         <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
+                             <button
+                                onClick={(e) => handleAction(e, () => setIsChatOpen(prev => !prev))}
+                                className="p-2 bg-black/60 rounded-full text-white backdrop-blur-sm hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-900 focus:ring-indigo-500 transition-all duration-200"
+                                aria-label="Chat about this image"
+                                title="Refinar con Chat"
+                            >
+                                <ChatIcon className="w-5 h-5" />
+                            </button>
                              {id === GenerationTypeEnum.FULL_BODY && (
                                 <button
                                     onClick={(e) => handleAction(e, onSuggestAccessories)}
@@ -136,7 +155,18 @@ const GeneratedImageCard: React.FC<GeneratedImageCardProps> = ({ id, title, src,
                     )}
                 </div>
             </div>
-            <h3 className="mt-3 text-md font-medium text-zinc-200 text-center">{title}</h3>
+            <div className="p-3 pt-2 text-center">
+                <h3 className="text-md font-medium text-zinc-200">{title}</h3>
+            </div>
+            {isChatOpen && (
+                <div className="border-t border-zinc-700">
+                    <ImageChat 
+                        messages={chatHistory} 
+                        onSendMessage={onSendMessage}
+                        isProcessing={status === 'loading'}
+                    />
+                </div>
+            )}
         </div>
     );
 };

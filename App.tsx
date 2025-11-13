@@ -1,15 +1,23 @@
+
+
 import React, { useState, useCallback, useEffect } from 'react';
-import type { GenerationType, UploadedFile, GeneratedImage, ClosetItem, ModelMeasurements, AccessorySuggestion } from './types';
-import { GenerationTypeEnum, ClosetCategoryEnum } from './types';
+import type { GenerationType, UploadedFile, GeneratedImage, ClosetItem, ModelMeasurements, AccessorySuggestion, ImageInput } from './types';
+import { GenerationTypeEnum, ClosetCategoryEnum, ClosetCategory } from './types';
 import { generateImage, processImage, categorizeImage, getStyleAnalysis, getAccessorySuggestions } from './services/geminiService';
+import { generarFotoConSilueta } from './utils/siluetaEscalada';
 import ImageDropzone from './components/ImageDropzone';
 import GeneratedImageCard from './components/GeneratedImageCard';
 import ImageEditorModal from './components/ImageEditorModal';
 import VirtualCloset from './components/VirtualCloset';
 import VintedAssistantModal from './components/VintedAssistantModal';
 import AccessorySuggestionModal from './components/AccessorySuggestionModal';
+import PromptEditor from './components/PromptEditor';
 import { resizeDataUrl, resizeAndEncodeImage } from './utils/fileUtils';
 import { CloseIcon } from './components/icons/CloseIcon';
+import { SpinnerIcon } from './components/icons/SpinnerIcon';
+import { fullBodyPrompts } from './lib/prompts';
+import { validatePrompt } from './lib/promptValidator';
+
 
 const initialGeneratedImages: GeneratedImage[] = [
      {
@@ -17,56 +25,153 @@ const initialGeneratedImages: GeneratedImage[] = [
         title: 'Creative Mood Board',
         prompt: "Act as a creative director for a high-fashion photoshoot. Based on the two provided images (a model reference and a garment), create a visually stunning 3x3 mood board collage in a single image. Each of the 9 cells should represent a key aesthetic element for the shoot. The collage must include inspiration for: color palette, fabric textures, potential urban or rural locations, makeup looks, hair styling, photographic lighting style, and overall editorial mood. The final output must be a single, cohesive, and inspiring image that defines the creative direction.",
         src: null,
-        status: 'pending'
+        status: 'pending',
+        chatHistory: []
     },
     {
         id: GenerationTypeEnum.VIRTUAL_TRY_ON,
         title: 'Virtual Try-On',
-        prompt: "Generate a highly realistic, full-body photograph of an AI-generated fashion model. The model should be inspired by the person in the first reference image, capturing their style and an approximate age of 45. The model is wearing the garment from the second image, fitted perfectly. The setting is a professional, brightly lit photo studio with a clean, minimalist background. The image should be photorealistic.",
+        prompt: "Generate a highly realistic, full-body photograph of a model wearing the garment from the second image, fitted perfectly. Ensure the generated model’s face is a perfect and photorealistic replication of the face in the first reference image, capturing all facial features, expression, and skin tone. The setting is a professional, brightly lit photo studio with a clean, minimalist background. The image should be photorealistic and suitable for a general audience.",
         src: null,
-        status: 'pending'
+        status: 'pending',
+        chatHistory: []
     },
     {
         id: GenerationTypeEnum.FULL_BODY,
         title: 'Full Body Shot',
-        prompt: "Generate a highly realistic, full-body e-commerce photograph. Create an AI-generated fashion model inspired by the person in the first reference image, matching their pose and an approximate age of 45. The model is wearing the garment from the second image. The background must be a clean, minimalist studio with professional, even lighting. The image must be appropriate for a general audience.",
+        prompt: fullBodyPrompts.front.ultra,
         src: null,
-        status: 'pending'
+        status: 'pending',
+        chatHistory: []
     },
     {
         id: GenerationTypeEnum.FULL_BODY_BACK,
         title: 'Full Body Shot (Back)',
-        prompt: "Generate a highly realistic, full-body e-commerce photograph showing the model from the back. Create an AI-generated fashion model inspired by the person in the first reference image, matching their pose and an approximate age of 45. The model is wearing the garment from the second image, showing its back view. The background must be a clean, minimalist studio with professional, even lighting. The image must be appropriate for a general audience.",
+        prompt: fullBodyPrompts.back.ultra,
         src: null,
-        status: 'pending'
+        status: 'pending',
+        chatHistory: []
+    },
+    {
+        id: GenerationTypeEnum.POSE_VINTED_FRONT,
+        title: 'Pose Vinted (Front)',
+        prompt: `**Primary Goal:** Create a professional, anonymous e-commerce photo for a platform like Vinted, focusing exclusively on the garment.
+
+**Subject & Garment:**
+- Generate a full-body photograph of a female model wearing the garment from the second reference image.
+- The model has a natural, relaxed, standing pose suitable for showcasing clothing.
+- The garment fits perfectly with realistic fabric texture, drape, and wrinkles. Skin texture on visible areas (neck, arms, legs) is natural and human-like.
+
+**CRITICAL FRAMING INSTRUCTION:**
+- The final image composition MUST BE TIGHTLY FRAMED from the base of the neck down to the feet.
+- The head and face must be completely excluded from the final shot due to this specific framing choice, which is intended to ensure the model's anonymity.
+- Imagine a photographer aiming their camera viewfinder so the top of the frame starts at the model's collarbones and the bottom of the frame is below her feet.
+
+**Photography Style:**
+- **Lighting:** Bright, soft, and even professional studio lighting that eliminates harsh shadows.
+- **Background:** A clean, seamless, light grey (#f0f0f0) or off-white studio backdrop.
+- **Quality:** Ultra-realistic, high-resolution, with sharp focus on the garment. The image should look like it was taken with a professional DSLR camera.
+
+**AVOID:**
+- Do not show any part of the model's face.
+- Avoid harsh shadows or distracting background elements.
+- The result should be a photograph, not a 3D render or illustration.`,
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
+    {
+        id: GenerationTypeEnum.POSE_VINTED_BACK,
+        title: 'Pose Vinted (Back)',
+        prompt: `**Primary Goal:** Create a professional, anonymous BACK VIEW e-commerce photo for a platform like Vinted, focusing exclusively on the garment.
+
+**Subject & Garment:**
+- Generate a full-body photograph of a female model from the BACK, wearing the garment from the second reference image.
+- The model has a natural, relaxed, standing pose as seen from behind.
+- The garment fits perfectly with realistic fabric texture, drape, and wrinkles. Skin texture on visible areas (neck, back, arms) is natural and human-like.
+
+**CRITICAL FRAMING INSTRUCTION:**
+- The final image composition MUST BE TIGHTLY FRAMED from the base of the neck down to the feet.
+- The head and face must be completely excluded from the final shot due to this specific framing choice, ensuring anonymity.
+- Imagine a photographer aiming their camera so the top of the frame starts at the model's shoulders/base of the neck.
+
+**Photography Style:**
+- **Lighting:** Bright, soft, and even professional studio lighting, consistent with a front-view shot.
+- **Background:** A clean, seamless, light grey (#f0f0f0) or off-white studio backdrop.
+- **Quality:** Ultra-realistic, high-resolution, with sharp focus on the back details of the garment. The image should look like it was taken with a professional DSLR camera.
+
+**AVOID:**
+- Do not show any part of the model's face.
+- Avoid harsh shadows or distracting background elements.
+- The result should be a photograph, not a 3D render or illustration.`,
+        src: null,
+        status: 'pending',
+        chatHistory: []
     },
     {
         id: GenerationTypeEnum.DETAIL,
         title: 'Garment Detail',
         prompt: "Create a detailed, macro-style product shot focusing on the garment in the provided image. The image should highlight the fabric's texture, weave, and stitching quality. The garment can be displayed on a generic, out-of-focus mannequin or as a flat lay to ensure the entire focus is on the material craftsmanship. Use professional, clean lighting.",
         src: null,
-        status: 'pending'
+        status: 'pending',
+        chatHistory: []
     },
     {
         id: GenerationTypeEnum.ACCESSORY_DETAIL,
         title: 'Accessory Detail',
         prompt: "Produce a high-resolution, close-up product photograph of the accessory shown in the image. The accessory should be the sole focus, displayed on a neutral, minimalist surface or held by a mannequin hand to show scale. The lighting must be professional to accentuate the material's texture and details.",
         src: null,
-        status: 'pending'
+        status: 'pending',
+        chatHistory: []
     },
     {
         id: GenerationTypeEnum.URBAN,
         title: 'Urban Editorial',
-        prompt: "Generate a dynamic, high-fashion editorial photograph in a modern urban environment. Create an AI-generated fashion model inspired by the mood, pose, and style of the person in the first reference image, with an apparent age of approximately 45. She is wearing the garment from the second image. The mood should be moody and atmospheric, with dramatic lighting and a sense of movement.",
+        prompt: `HIGH-FASHION URBAN EDITORIAL SHOT:
+Generate a cinematic, ultra-realistic, full-body editorial photograph of a fashion model in a compelling urban setting.
+
+**Creative Concept & Mood:**
+- The mood is cinematic and candid, capturing a fleeting, authentic moment. It should feel like a still from an art-house film.
+- The aesthetic is effortlessly cool and high-fashion, not overly posed.
+
+**Model & Garment:**
+- The model, inspired by the reference photo, is wearing the garment from the second image. The garment is the star, shown in motion or in a natural pose.
+- Pose should be dynamic and interact with the environment (e.g., walking confidently across a street, leaning against a textured wall, looking off-camera).
+
+**Location & Environment:**
+- The setting is a rich, atmospheric urban environment. Choose from options like: a rain-slicked city street at dusk with neon reflections; a classic European cobblestone alley; a minimalist concrete plaza with long shadows; or a gritty, textured industrial area.
+- The background should have depth and character but not distract from the model and garment. A shallow depth of field is appropriate.
+
+**Photography & Lighting Style:**
+- **CRUCIAL:** The image must look like it was shot on a high-end mirrorless camera (e.g., Sony A7R IV with a 50mm f/1.2 G Master lens).
+- Utilize a mix of ambient city lights (streetlights, neon signs) and a subtle off-camera flash or strobe to create a cinematic, high-contrast look that sculpts the model. The lighting should feel motivated and natural to the scene.
+
+**Image Quality & Realism:**
+- The final image must be indistinguishable from a real professional photograph.
+- Ensure hyper-realistic textures: the weave of the garment's fabric, the grit of a brick wall, the reflection on a puddle, natural skin texture.
+- The image must be sharp, with beautiful color grading (e.g., moody blues and warm oranges, or a desaturated, cinematic palette).
+
+**Audience & Safety:**
+- The image must be appropriate for a general audience and suitable for a high-fashion magazine editorial.`,
         src: null,
-        status: 'pending'
+        status: 'pending',
+        chatHistory: []
     },
     {
         id: GenerationTypeEnum.RURAL,
         title: 'Rural Editorial',
-        prompt: "Create a serene, high-fashion editorial photograph in a picturesque rural landscape. Create an AI-generated fashion model inspired by the mood, pose, and style of the person in the first reference image, with an apparent age of approximately 45. She is wearing the garment from the second image. The mood should be ethereal and romantic, with soft, natural lighting.",
+        prompt: "Create a serene, high-fashion editorial photograph in a picturesque rural landscape. A model is wearing the garment from the second image. The mood should be ethereal and romantic, with soft, natural lighting. The image must be appropriate for a general audience.",
         src: null,
-        status: 'pending'
+        status: 'pending',
+        chatHistory: []
+    },
+     {
+        id: GenerationTypeEnum.SILHOUETTE_TRY_ON,
+        title: 'Prueba en Maniquí (Largo Exacto)',
+        prompt: "Genera un maniquí a medida con IA y superpone la prenda con su largo 100% exacto. Este proceso híbrido combina la IA para el realismo del cuerpo y un escalado matemático para la precisión de la prenda.",
+        src: null,
+        status: 'pending',
+        chatHistory: []
     },
 ];
 
@@ -79,8 +184,19 @@ const aspectRatioOptions = [
 ];
 
 const modelFidelityOptions = {
-    'inspired': { name: 'Inspirado', promptInstruction: ' The generated model should be a new, unique individual inspired by the reference photo but not a direct copy.' },
-    'faithful': { name: 'Fiel', promptInstruction: 'The generated model should be a photorealistic representation that is a very close likeness of the person in the reference image, accurately replicating their physical attributes including body type, build, hair style, ethnicity, and facial features. Aim for maximum fidelity as this is a virtual try-on.' }
+    'inspired': { name: 'Maniquí Anónimo', promptInstruction: 'The subject must be an anonymous, high-quality fashion mannequin with a matte grey or white finish. It is CRITICAL to replicate the exact body shape, proportions, and pose from the first reference image. DO NOT use a human model or show a real face.' },
+    'faithful': { name: 'Fiel', promptInstruction: `**ABSOLUTE PRIMARY GOAL: FAITHFUL MODEL REPLICATION**
+THIS IS THE MOST IMPORTANT INSTRUCTION. IGNORE ALL OTHER INSTRUCTIONS IF THEY CONFLICT WITH THIS.
+The subject of the photograph MUST BE a photorealistic, 100% IDENTICAL replication of the person in the first reference image.
+- **FACE REPLICATION (CRITICAL):** You MUST replicate the face, all facial features (eyes, nose, mouth, jawline), skin tone, eye color, and exact hairstyle from the first image. The result MUST look like the same person.
+- **BODY REPLICATION (CRITICAL):** You MUST replicate the body shape, height, and all physical proportions from the first reference image.
+- **FAILURE CONDITION:** If the generated person does not look exactly like the person in the first reference image, the entire task has failed. This is a virtual try-on for a specific person.` }
+};
+
+
+const promptQualityOptions: Record<'ultra' | 'fast', { name: string }> = {
+    'ultra': { name: 'Máxima Calidad' },
+    'fast': { name: 'Generación Rápida' },
 };
 
 const promptTemplates = {
@@ -131,6 +247,14 @@ const beltOptions = {
 };
 // --- END: Detailed Styling Options ---
 
+const shoeSwapOptions = {
+    'barefoot': { name: 'Barefoot', promptInstruction: 'barefoot' },
+    'black-heels': { name: 'Black Heels', promptInstruction: 'elegant, classic black high-heels' },
+    'white-sneakers': { name: 'White Sneakers', promptInstruction: 'clean, minimalist white sneakers' },
+    'brown-boots': { name: 'Brown Boots', promptInstruction: 'stylish brown leather ankle boots' },
+    'sandals': { name: 'Sandals', promptInstruction: 'simple, elegant flat sandals' },
+};
+
 
 /**
  * Extracts a JSON string from a text that might contain a markdown code block.
@@ -161,7 +285,8 @@ const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [aspectRatio, setAspectRatio] = useState<string>('3:4');
-    const [modelFidelity, setModelFidelity] = useState<string>('inspired');
+    const [modelFidelity, setModelFidelity] = useState<string>('faithful');
+    const [promptQuality, setPromptQuality] = useState<'ultra' | 'fast'>('ultra');
     const [activeStyle, setActiveStyle] = useState<string>('default');
     const [editingImage, setEditingImage] = useState<GeneratedImage | null>(null);
     const [modelMeasurements, setModelMeasurements] = useState<ModelMeasurements>({
@@ -173,6 +298,17 @@ const App: React.FC = () => {
         notes: ''
     });
     const [isAppLoaded, setIsAppLoaded] = useState(false);
+    const [outfitCategory, setOutfitCategory] = useState<ClosetCategory | null>(null);
+
+    // Phase 2 State: Custom prompts for editor
+    const [customFullBodyPrompt, setCustomFullBodyPrompt] = useState(fullBodyPrompts.front.ultra);
+    const [customFullBodyBackPrompt, setCustomFullBodyBackPrompt] = useState(fullBodyPrompts.back.ultra);
+    const [customVirtualTryOnPrompt, setCustomVirtualTryOnPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.VIRTUAL_TRY_ON)?.prompt ?? '');
+    const [customVintedFrontPrompt, setCustomVintedFrontPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.POSE_VINTED_FRONT)?.prompt ?? '');
+    const [customVintedBackPrompt, setCustomVintedBackPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.POSE_VINTED_BACK)?.prompt ?? '');
+    const [finalFullBodyPrompt, setFinalFullBodyPrompt] = useState('');
+    const [finalFullBodyBackPrompt, setFinalFullBodyBackPrompt] = useState('');
+
 
     // --- START: Detailed Styling State ---
     const [garmentLength, setGarmentLength] = useState<string>('original');
@@ -180,6 +316,9 @@ const App: React.FC = () => {
     const [fixedAccessory, setFixedAccessory] = useState<string>('none');
     const [belt, setBelt] = useState<string>('none');
     // --- END: Detailed Styling State ---
+    
+    // State for Silhouette Generator
+    const [garmentLengthCm, setGarmentLengthCm] = useState<string>('');
     
     // State for Vinted Assistant
     const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
@@ -194,6 +333,45 @@ const App: React.FC = () => {
     // PWA Install Prompt State
     const [installPromptEvent, setInstallPromptEvent] = useState<any | null>(null);
     const [showInstallBanner, setShowInstallBanner] = useState<boolean>(false);
+
+    // State for new standalone analyzer
+    const [analysisImage, setAnalysisImage] = useState<UploadedFile | null>(null);
+    const [analysisQuestion, setAnalysisQuestion] = useState<string>('Describe el estilo de esta prenda en detalle. ¿Cuáles son las piezas clave? ¿Para qué tipo de evento sería adecuada? Sugiere un accesorio para completar el look.');
+    const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+    const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState<boolean>(false);
+
+    // State for Shoe Swap
+    const [isSwappingShoes, setIsSwappingShoes] = useState<boolean>(false);
+
+     const handleApiError = (err: unknown, defaultMessage: string = 'An unknown error occurred.') => {
+        let errorMessage = err instanceof Error ? err.message : defaultMessage;
+    
+        // Check for our custom queue cancellation message first
+        if (errorMessage.includes('API quota limit reached')) {
+            setError('API quota limit reached. Further generations have been cancelled.');
+            return;
+        }
+        
+        // Attempt to parse JSON from Google's error response
+        try {
+            // Match a JSON object within the error string
+            const jsonMatch = errorMessage.match(/{.+}/s);
+            if (jsonMatch) {
+                const errorObj = JSON.parse(jsonMatch[0]);
+                if (errorObj.error && errorObj.error.message) {
+                    errorMessage = errorObj.error.message;
+                }
+            }
+        } catch(e) {
+            // Ignore parsing errors, stick with original message
+        }
+    
+        if (errorMessage.includes('RESOURCE_EXHAUSTED') || errorMessage.includes('429')) {
+             setError('You have exceeded the API quota. Please check your plan and billing details.');
+        } else {
+             setError(errorMessage);
+        }
+    };
 
 
     useEffect(() => {
@@ -329,7 +507,7 @@ const App: React.FC = () => {
 
         } catch (err) {
             console.error("Failed to process image for closet:", err);
-            setError("Failed to remove background and categorize closet item.");
+            handleApiError(err, "Failed to remove background and categorize closet item.");
         }
     };
 
@@ -343,16 +521,19 @@ const App: React.FC = () => {
             await addUploadedItemToCloset(uploadedFile, 'outfit');
         } catch (error) {
             console.error("Error adding outfit to closet:", error);
-            setError("Failed to add item to closet.");
+            handleApiError(error, "Failed to add item to closet.");
             // Re-throw to allow the caller to handle its own UI state
             throw error;
         }
     };
 
-    const handleFileChange = (file: UploadedFile | null, type: 'model' | 'outfit' | 'back-outfit') => {
+    const handleFileChange = async (file: UploadedFile | null, type: 'model' | 'outfit' | 'back-outfit') => {
         if (!file) {
             if (type === 'model') setModelImage(null);
-            if (type === 'outfit') setOutfitImage(null);
+            if (type === 'outfit') {
+                setOutfitImage(null);
+                setOutfitCategory(null);
+            }
             if (type === 'back-outfit') setBackOutfitImage(null);
             return;
         }
@@ -361,9 +542,26 @@ const App: React.FC = () => {
             setModelImage(file);
         } else if (type === 'outfit') {
             setOutfitImage(file);
-            addUploadedItemToCloset(file, 'outfit');
+            addUploadedItemToCloset(file, 'outfit'); // Adds to closet
+            // Categorize for main prompt generation
+            try {
+                const categoryString = await categorizeImage({ base64: file.base64, mimeType: file.mimeType });
+                const validCategories = Object.keys(ClosetCategoryEnum).map(c => c.toLowerCase());
+                const foundCategory = validCategories.find(c => categoryString.toLowerCase().includes(c));
+                if (foundCategory) {
+                    setOutfitCategory(foundCategory.toUpperCase() as ClosetCategoryEnum);
+                } else {
+                    console.warn(`Could not determine a specific category for the outfit: ${categoryString}`);
+                    setOutfitCategory(null);
+                }
+            } catch (err) {
+                console.error("Failed to categorize outfit:", err);
+                setOutfitCategory(null);
+            }
+
         } else if (type === 'back-outfit') {
             setBackOutfitImage(file);
+            // We assume the back has the same category as the front, so no need to categorize again.
             addUploadedItemToCloset(file, 'outfit');
         }
     };
@@ -386,7 +584,8 @@ const App: React.FC = () => {
                 handleAccessoryFileChange(0, uploadedFile);
             }
         } else {
-            setOutfitImage(uploadedFile);
+            // Use handleFileChange to set the outfit and trigger categorization
+            handleFileChange(uploadedFile, 'outfit');
         }
     };
 
@@ -427,6 +626,34 @@ const App: React.FC = () => {
         );
     };
 
+    // Effect to sync editor state with main state
+    useEffect(() => {
+        handlePromptChange(GenerationTypeEnum.FULL_BODY, customFullBodyPrompt);
+    }, [customFullBodyPrompt]);
+
+    useEffect(() => {
+        handlePromptChange(GenerationTypeEnum.FULL_BODY_BACK, customFullBodyBackPrompt);
+    }, [customFullBodyBackPrompt]);
+
+    useEffect(() => {
+        handlePromptChange(GenerationTypeEnum.VIRTUAL_TRY_ON, customVirtualTryOnPrompt);
+    }, [customVirtualTryOnPrompt]);
+
+    useEffect(() => {
+        handlePromptChange(GenerationTypeEnum.POSE_VINTED_FRONT, customVintedFrontPrompt);
+    }, [customVintedFrontPrompt]);
+
+    useEffect(() => {
+        handlePromptChange(GenerationTypeEnum.POSE_VINTED_BACK, customVintedBackPrompt);
+    }, [customVintedBackPrompt]);
+
+    // Effect to update editors when quality template changes
+    useEffect(() => {
+        setCustomFullBodyPrompt(fullBodyPrompts.front[promptQuality]);
+        setCustomFullBodyBackPrompt(fullBodyPrompts.back[promptQuality]);
+    }, [promptQuality]);
+
+
     const handleSaveEdit = (id: GenerationType, newSrc: string) => {
         setGeneratedImages(prev =>
             prev.map(img => (img.id === id ? { ...img, src: newSrc } : img))
@@ -446,7 +673,7 @@ const App: React.FC = () => {
 
         let instruction = '';
         if (measurements) {
-            instruction += ` The model should be generated with a body shape that reflects these proportions: ${measurements}.`;
+            instruction += ` The mannequin should be generated with a body shape that reflects these proportions: ${measurements}.`;
         }
         if (notes) {
             instruction += ` General appearance notes: ${notes}.`;
@@ -469,113 +696,226 @@ const App: React.FC = () => {
         return ` and the accessories from the ${positionString} images`;
     };
 
+    const validAccessories = accessoryImages.filter((img): img is UploadedFile => !!img);
+    const getIsGenerationPossible = useCallback((id: GenerationType) => {
+        switch (id) {
+            case GenerationTypeEnum.MOOD_BOARD:
+            case GenerationTypeEnum.VIRTUAL_TRY_ON:
+            case GenerationTypeEnum.FULL_BODY:
+            case GenerationTypeEnum.URBAN:
+            case GenerationTypeEnum.RURAL:
+            case GenerationTypeEnum.POSE_VINTED_FRONT:
+                return !!modelImage && !!outfitImage;
+            case GenerationTypeEnum.FULL_BODY_BACK:
+            case GenerationTypeEnum.POSE_VINTED_BACK:
+                return !!modelImage && !!backOutfitImage;
+            case GenerationTypeEnum.DETAIL:
+                return !!outfitImage || !!backOutfitImage;
+            case GenerationTypeEnum.ACCESSORY_DETAIL:
+                return validAccessories.length > 0;
+            case GenerationTypeEnum.SILHOUETTE_TRY_ON:
+                return !!modelImage && !!outfitImage && !!garmentLengthCm;
+            default:
+                return false;
+        }
+    }, [modelImage, outfitImage, backOutfitImage, accessoryImages, garmentLengthCm]);
+    
+    const buildFullBodyPrompt = useCallback((basePrompt: string, isBackView: boolean) => {
+        const characteristicsInstruction = getModelCharacteristics();
+        const fidelityInstruction = modelFidelityOptions[modelFidelity as keyof typeof modelFidelityOptions].promptInstruction;
+        
+        const validAccessories = accessoryImages.filter((img): img is UploadedFile => !!img);
+    
+        const lengthInstruction = garmentLengthOptions[garmentLength as keyof typeof garmentLengthOptions].promptInstruction;
+        const fitInstruction = garmentFitOptions[garmentFit as keyof typeof garmentFitOptions].promptInstruction;
+        const fixedAccessoryInstruction = fixedAccessoryOptions[fixedAccessory as keyof typeof fixedAccessoryOptions].promptInstruction;
+        const beltInstruction = beltOptions[belt as keyof typeof beltOptions].promptInstruction;
+        const dynamicAccessoryInstruction = getAccessoryPromptFragment(validAccessories.length);
+    
+        const activeInstructions = [
+            lengthInstruction,
+            fitInstruction,
+            fixedAccessoryInstruction,
+            beltInstruction,
+            dynamicAccessoryInstruction,
+        ].filter(Boolean);
+        
+        let finalStylingInstructions = 'None.';
+        if (activeInstructions.length > 0) {
+            finalStylingInstructions = activeInstructions
+                .map(inst => `- ${inst.trim()}`)
+                .join('\n');
+        }
+        
+        const modelRefInstruction = isBackView 
+            ? `**CRITICAL - MODEL REFERENCE (BACK VIEW):**\n${fidelityInstruction}\n- This is the BACK VIEW of the same person. Body shape, skin tone, and hair must match.\n${characteristicsInstruction}`
+            : `**CRITICAL - MODEL REFERENCE:**\n${fidelityInstruction}\n${characteristicsInstruction}`;
+    
+        let finalPrompt = basePrompt;
+    
+        // Prepend model instructions
+        finalPrompt = `${modelRefInstruction}\n\n${finalPrompt}`;
+    
+        // Append styling, technical, and variation instructions
+        finalPrompt += `\n\n**STYLING & GARMENT MODIFICATIONS:**\n${finalStylingInstructions}`;
+        finalPrompt += `\n\n**TECHNICAL REQUIREMENTS:**\n- Aspect ratio must be ${aspectRatio}.`;
+        
+        if (outfitCategory) {
+            let variationPrompt = '';
+            switch (outfitCategory) {
+                case ClosetCategoryEnum.DRESS: variationPrompt = fullBodyPrompts.variations.dress; break;
+                case ClosetCategoryEnum.BOTTOM: variationPrompt = fullBodyPrompts.variations.pants; break;
+                case ClosetCategoryEnum.TOP: variationPrompt = fullBodyPrompts.variations.top; break;
+                case ClosetCategoryEnum.OUTERWEAR: variationPrompt = fullBodyPrompts.variations.outerwear; break;
+            }
+            if (variationPrompt) {
+                finalPrompt += `\n\n${variationPrompt}`;
+            }
+        }
+        
+        return finalPrompt;
+    }, [modelFidelity, modelMeasurements, garmentLength, garmentFit, fixedAccessory, belt, accessoryImages, aspectRatio, outfitCategory, getModelCharacteristics, getAccessoryPromptFragment]);
+
+    useEffect(() => {
+        setFinalFullBodyPrompt(buildFullBodyPrompt(customFullBodyPrompt, false));
+        setFinalFullBodyBackPrompt(buildFullBodyPrompt(customFullBodyBackPrompt, true));
+    }, [buildFullBodyPrompt, customFullBodyPrompt, customFullBodyBackPrompt]);
+
     const generateSingleImage = useCallback(async (imageInfo: GeneratedImage) => {
         const validAccessories = accessoryImages.filter((img): img is UploadedFile => !!img);
 
         let sourceImagesForAPI: UploadedFile[] = [];
         let missingPrerequisiteMessage: string | null = null;
 
-        switch (imageInfo.id) {
-            case GenerationTypeEnum.MOOD_BOARD:
-            case GenerationTypeEnum.VIRTUAL_TRY_ON:
-            case GenerationTypeEnum.FULL_BODY:
-            case GenerationTypeEnum.URBAN:
-            case GenerationTypeEnum.RURAL:
-                if (!modelImage || !outfitImage) {
-                    missingPrerequisiteMessage = 'Please upload both a model and an outfit image.';
-                } else {
-                    sourceImagesForAPI = [modelImage, outfitImage, ...validAccessories];
-                }
-                break;
-            case GenerationTypeEnum.FULL_BODY_BACK:
-                if (!modelImage || !backOutfitImage) {
-                    missingPrerequisiteMessage = 'Please upload a model and a back outfit image.';
-                } else {
-                    sourceImagesForAPI = [modelImage, backOutfitImage, ...validAccessories];
-                }
-                break;
-            case GenerationTypeEnum.DETAIL:
-                if (!outfitImage && !backOutfitImage) {
-                    missingPrerequisiteMessage = 'Please upload an outfit image for the detail shot.';
-                } else {
+        if (!getIsGenerationPossible(imageInfo.id)) {
+             if (imageInfo.id !== GenerationTypeEnum.ACCESSORY_DETAIL) {
+                missingPrerequisiteMessage = 'Prerequisites not met for this image.';
+            } else {
+                 setGeneratedImages(prev => prev.map(img => img.id === imageInfo.id ? { ...img, src: null, status: 'pending' } : img));
+                 return; // Silently skip if no accessory is provided, as it's optional
+            }
+        } else {
+             switch (imageInfo.id) {
+                case GenerationTypeEnum.MOOD_BOARD:
+                case GenerationTypeEnum.VIRTUAL_TRY_ON:
+                case GenerationTypeEnum.FULL_BODY:
+                case GenerationTypeEnum.URBAN:
+                case GenerationTypeEnum.RURAL:
+                    sourceImagesForAPI = [modelImage!, outfitImage!, ...validAccessories];
+                    break;
+                case GenerationTypeEnum.POSE_VINTED_FRONT:
+                    sourceImagesForAPI = [modelImage!, outfitImage!];
+                    break;
+                case GenerationTypeEnum.FULL_BODY_BACK:
+                    sourceImagesForAPI = [modelImage!, backOutfitImage!, ...validAccessories];
+                    break;
+                case GenerationTypeEnum.POSE_VINTED_BACK:
+                    sourceImagesForAPI = [modelImage!, backOutfitImage!];
+                    break;
+                case GenerationTypeEnum.DETAIL:
                     sourceImagesForAPI = [outfitImage ?? backOutfitImage!];
-                }
-                break;
-            case GenerationTypeEnum.ACCESSORY_DETAIL:
-                if (validAccessories.length === 0) {
-                    setGeneratedImages(prev => prev.map(img => img.id === imageInfo.id ? { ...img, src: null, status: 'pending' } : img));
-                    return; // Exit silently
-                } else {
-                    sourceImagesForAPI = [validAccessories[0]];
-                }
-                break;
+                    break;
+                case GenerationTypeEnum.ACCESSORY_DETAIL:
+                     sourceImagesForAPI = [validAccessories[0]];
+                    break;
+            }
         }
+
 
         if (missingPrerequisiteMessage) {
             setError(missingPrerequisiteMessage);
-            setGeneratedImages(prev => prev.map(img => img.id === imageInfo.id ? { ...img, status: 'error' } : img));
+            setGeneratedImages(prev => prev.map(img => img.id === imageInfo.id ? { ...img, status: 'error', error: missingPrerequisiteMessage } : img));
             return;
         }
 
+        // Handle mathematical silhouette generation (no AI)
+        if (imageInfo.id === GenerationTypeEnum.SILHOUETTE_TRY_ON) {
+            try {
+                const resultSrc = await generarFotoConSilueta(
+                    modelMeasurements,
+                    outfitImage!.preview,
+                    garmentLengthCm
+                );
+                setGeneratedImages(prev => prev.map(img => img.id === imageInfo.id ? { ...img, src: resultSrc, status: 'done' } : img));
+            } catch (err) {
+                 const errorMessage = err instanceof Error ? err.message : `Failed to generate silhouette for ${imageInfo.title}`;
+                console.error(`Failed to generate silhouette for ${imageInfo.title}:`, err);
+                handleApiError(err, errorMessage);
+                setGeneratedImages(prev => prev.map(img => img.id === imageInfo.id ? { ...img, status: 'error', error: errorMessage } : img));
+            }
+            return; // Exit after handling this special case
+        }
+
         try {
-            const characteristicsInstruction = getModelCharacteristics();
-            const aspectRatioInstruction = ` The final photograph must have a ${aspectRatio} aspect ratio.`;
-            const fidelityInstruction = modelFidelityOptions[modelFidelity as keyof typeof modelFidelityOptions].promptInstruction;
+            let prompt: string;
             
-            // --- START: Detailed Styling Instructions ---
-            const lengthInstruction = garmentLengthOptions[garmentLength as keyof typeof garmentLengthOptions].promptInstruction;
-            const fitInstruction = garmentFitOptions[garmentFit as keyof typeof garmentFitOptions].promptInstruction;
-            const fixedAccessoryInstruction = fixedAccessoryOptions[fixedAccessory as keyof typeof fixedAccessoryOptions].promptInstruction;
-            const beltInstruction = beltOptions[belt as keyof typeof beltOptions].promptInstruction;
-            const dynamicAccessoryInstruction = getAccessoryPromptFragment(validAccessories.length);
-            // --- END: Detailed Styling Instructions ---
+            if (imageInfo.id === GenerationTypeEnum.FULL_BODY) {
+                prompt = finalFullBodyPrompt;
+            } else if (imageInfo.id === GenerationTypeEnum.FULL_BODY_BACK) {
+                prompt = finalFullBodyBackPrompt;
+            } else {
+                 let basePrompt = imageInfo.prompt;
+                // Fallback for other types that might need model/styling info
+                const modelBasedTypes = [GenerationTypeEnum.VIRTUAL_TRY_ON, GenerationTypeEnum.URBAN, GenerationTypeEnum.RURAL, GenerationTypeEnum.POSE_VINTED_FRONT, GenerationTypeEnum.POSE_VINTED_BACK];
+                if(modelBasedTypes.includes(imageInfo.id)) {
+                    const characteristicsInstruction = getModelCharacteristics();
+                    const fidelityInstruction = modelFidelityOptions[modelFidelity as keyof typeof modelFidelityOptions].promptInstruction;
+                    const lengthInstruction = garmentLengthOptions[garmentLength as keyof typeof garmentLengthOptions].promptInstruction;
+                    const fitInstruction = garmentFitOptions[garmentFit as keyof typeof garmentFitOptions].promptInstruction;
+                    const fixedAccessoryInstruction = fixedAccessoryOptions[fixedAccessory as keyof typeof fixedAccessoryOptions].promptInstruction;
+                    const beltInstruction = beltOptions[belt as keyof typeof beltOptions].promptInstruction;
+                    const dynamicAccessoryInstruction = getAccessoryPromptFragment(validAccessories.length);
 
-            const modelBasedTypes = [GenerationTypeEnum.VIRTUAL_TRY_ON, GenerationTypeEnum.FULL_BODY, GenerationTypeEnum.FULL_BODY_BACK, GenerationTypeEnum.URBAN, GenerationTypeEnum.RURAL];
-            
-            let finalStylingInstructions = '';
-            if (modelBasedTypes.includes(imageInfo.id)) {
-                // Base instructions applicable to all model views
-                const baseInstructions = [
-                    lengthInstruction,
-                    fitInstruction,
-                    fixedAccessoryInstruction,
-                    beltInstruction,
-                    dynamicAccessoryInstruction,
-                ];
+                    const activeInstructions = [
+                        lengthInstruction,
+                        fitInstruction,
+                        fixedAccessoryInstruction,
+                        beltInstruction,
+                        dynamicAccessoryInstruction,
+                    ].filter(Boolean);
+                    
+                    let finalStylingInstructions = 'None.';
+                    if (activeInstructions.length > 0) {
+                        finalStylingInstructions = activeInstructions
+                            .map(inst => `- ${inst.trim()}`)
+                            .join('\n');
+                    }
+                    prompt = `
+**MAIN TASK:**
+${basePrompt}
 
-                // Instructions that only make sense for a front view
-                const frontOnlyInstructions: string[] = [];
-                
-                let activeInstructions: string[] = [];
-                if (imageInfo.id === GenerationTypeEnum.FULL_BODY_BACK) {
-                    activeInstructions = baseInstructions.filter(Boolean);
+**MODEL & POSE INSTRUCTIONS:**
+${fidelityInstruction}
+${characteristicsInstruction}
+
+**STYLING & GARMENT MODIFICATIONS:**
+${finalStylingInstructions}
+
+**TECHNICAL & CREATIVE REQUIREMENTS:**
+- The final photograph must have a ${aspectRatio} aspect ratio.
+- The composition must be original and creative.
+- The final image must be suitable for a general audience.
+- Style: Ensure the result is a photorealistic photograph, NOT a CGI render, illustration, or mannequin unless explicitly requested.
+`;
                 } else {
-                    activeInstructions = [...baseInstructions, ...frontOnlyInstructions].filter(Boolean);
-                }
-
-                if (activeInstructions.length > 0) {
-                    const formattedInstructions = activeInstructions
-                        .map(inst => `- ${inst.trim()}`)
-                        .join('\n');
-                    finalStylingInstructions = `\n\nPlease apply the following specific modifications to the garment:\n${formattedInstructions}`;
+                    const aspectRatioInstruction = ` The final photograph must have a ${aspectRatio} aspect ratio.`;
+                    prompt = basePrompt + aspectRatioInstruction;
                 }
             }
-            
-            // Construct final prompt, ensuring fidelity instruction is separate from styling list
-            const prompt = imageInfo.prompt + fidelityInstruction + finalStylingInstructions + characteristicsInstruction + aspectRatioInstruction;
             
             const resultSrc = await generateImage(prompt, sourceImagesForAPI);
             setGeneratedImages(prev => prev.map(img => img.id === imageInfo.id ? { ...img, src: resultSrc, status: 'done' } : img));
         } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : `Failed to generate image for ${imageInfo.title}`;
             console.error(`Failed to generate image for ${imageInfo.title}:`, err);
-            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-            setError(`Failed to generate image for ${imageInfo.title}: ${errorMessage}`);
-            setGeneratedImages(prev => prev.map(img => img.id === imageInfo.id ? { ...img, status: 'error' } : img));
+            handleApiError(err, errorMessage);
+            setGeneratedImages(prev => prev.map(img => img.id === imageInfo.id ? { ...img, status: 'error', error: errorMessage } : img));
             // Do not re-throw, as the main generate function doesn't need to handle individual failures
         }
     }, [
         modelImage, outfitImage, backOutfitImage, accessoryImages, aspectRatio, modelMeasurements, modelFidelity, 
-        garmentLength, garmentFit, fixedAccessory, belt
+        garmentLength, garmentFit, fixedAccessory, belt, garmentLengthCm, getIsGenerationPossible, outfitCategory,
+        finalFullBodyPrompt, finalFullBodyBackPrompt, buildFullBodyPrompt
     ]);
 
 
@@ -587,33 +927,91 @@ const App: React.FC = () => {
 
         setIsLoading(true);
         setError(null);
-        
-        setGeneratedImages(prev => prev.map(img => ({
-            ...img,
-            src: null,
-            status: 'loading'
-        })));
-        
-        // Generate all images in parallel
-        const generationPromises = generatedImages.map(imageInfo => generateSingleImage(imageInfo));
-        
-        await Promise.allSettled(generationPromises);
-        
+
+        // Filter for images that can actually be generated based on inputs
+        const imagesToGenerate = generatedImages.filter(img => getIsGenerationPossible(img.id));
+
+        // Mark all eligible images as queued first, so the user sees the whole plan
+        const queuedImageIds = imagesToGenerate.map(img => img.id);
+        setGeneratedImages(prev => prev.map(img =>
+            queuedImageIds.includes(img.id)
+                ? { ...img, src: null, status: 'queued', error: undefined }
+                : img
+        ));
+
+        // Process images one by one to provide clear progress feedback
+        for (const imageInfo of imagesToGenerate) {
+            // Set current image to loading status
+            setGeneratedImages(prev => prev.map(img =>
+                img.id === imageInfo.id ? { ...img, status: 'loading' } : img
+            ));
+
+            await generateSingleImage(imageInfo);
+        }
+
         setIsLoading(false);
-    }, [modelImage, outfitImage, backOutfitImage, generatedImages, generateSingleImage]);
+    }, [modelImage, outfitImage, backOutfitImage, generatedImages, generateSingleImage, getIsGenerationPossible]);
     
     const handleGenerateSingle = useCallback(async (id: GenerationType) => {
         const imageInfo = generatedImages.find(img => img.id === id);
         if (!imageInfo) return;
 
         setGeneratedImages(prev => prev.map(img => 
-            img.id === id ? { ...img, status: 'loading' } : img
+            img.id === id ? { ...img, status: 'loading', error: undefined } : img
         ));
         setError(null);
 
         await generateSingleImage(imageInfo);
 
     }, [generatedImages, generateSingleImage]);
+
+    const handleShoeSwap = async (shoeType: string) => {
+        const shoePromptInstruction = shoeSwapOptions[shoeType as keyof typeof shoeSwapOptions]?.promptInstruction;
+        if (!shoePromptInstruction) return;
+    
+        const fullBodyImage = generatedImages.find(img => img.id === GenerationTypeEnum.FULL_BODY);
+    
+        if (!fullBodyImage || !fullBodyImage.src) {
+            setError("Please generate the 'Full Body Shot' image before swapping shoes.");
+            return;
+        }
+    
+        setIsSwappingShoes(true);
+        setError(null);
+        setGeneratedImages(prev => prev.map(img =>
+            img.id === GenerationTypeEnum.FULL_BODY ? { ...img, status: 'loading', error: undefined } : img
+        ));
+    
+        try {
+            const prompt = `CRITICAL TASK: IMAGE EDITING.
+You are a professional photo retoucher. Your task is to modify the provided image by changing ONLY the footwear.
+**Instruction:** Realistically change the model's footwear to be ${shoePromptInstruction}.
+**Strict Rules:**
+- DO NOT change the model, her pose, the garment she is wearing, the background, or the lighting.
+- The edit must be seamless and photorealistic.
+- If the instruction is 'barefoot', remove the shoes completely and render realistic bare feet.
+The output MUST be only the modified image.`;
+    
+            const mimeType = fullBodyImage.src.match(/data:(.*);base64,/)?.[1] ?? 'image/png';
+            const base64 = fullBodyImage.src.split(',')[1];
+            const imageInput: ImageInput = { base64, mimeType };
+    
+            const newSrc = await processImage(prompt, [imageInput]);
+    
+            setGeneratedImages(prev => prev.map(img =>
+                img.id === GenerationTypeEnum.FULL_BODY ? { ...img, src: newSrc, status: 'done' } : img
+            ));
+    
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to swap shoes.';
+            handleApiError(err, 'Failed to swap shoes.');
+            setGeneratedImages(prev => prev.map(img =>
+                img.id === GenerationTypeEnum.FULL_BODY ? { ...img, status: 'error', error: errorMessage } : img
+            ));
+        } finally {
+            setIsSwappingShoes(false);
+        }
+    };
 
 
     const handleStyleAnalysis = async () => {
@@ -649,8 +1047,7 @@ const App: React.FC = () => {
 
         } catch (err) {
             console.error("Failed to get style analysis:", err);
-            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-            setError(`Failed to get style analysis: ${errorMessage}`);
+            handleApiError(err, "Failed to get style analysis.");
         } finally {
             setIsAnalyzing(false);
         }
@@ -702,8 +1099,7 @@ const App: React.FC = () => {
 
         } catch (err) {
             console.error("Failed to get accessory suggestions:", err);
-            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-            setError(`Failed to suggest accessories: ${errorMessage}`);
+            handleApiError(err, "Failed to suggest accessories.");
             // Close the modal on error
             setIsSuggestionModalOpen(false);
         } finally {
@@ -731,26 +1127,106 @@ const App: React.FC = () => {
 
         setIsSuggestionModalOpen(false); // Close modal after selection
     };
+    
+    const handleAnalyzePhoto = async () => {
+        if (!analysisImage || !analysisQuestion) {
+            setError("Please upload an image and provide a question for analysis.");
+            return;
+        }
+        setIsAnalyzingPhoto(true);
+        setError(null);
+        setAnalysisResult(null);
 
-    const validAccessories = accessoryImages.filter((img): img is UploadedFile => !!img);
-    const getIsGenerationPossible = (id: GenerationType) => {
-        switch (id) {
-            case GenerationTypeEnum.MOOD_BOARD:
-            case GenerationTypeEnum.VIRTUAL_TRY_ON:
-            case GenerationTypeEnum.FULL_BODY:
-            case GenerationTypeEnum.URBAN:
-            case GenerationTypeEnum.RURAL:
-                return !!modelImage && !!outfitImage;
-            case GenerationTypeEnum.FULL_BODY_BACK:
-                return !!modelImage && !!backOutfitImage;
-            case GenerationTypeEnum.DETAIL:
-                return !!outfitImage || !!backOutfitImage;
-            case GenerationTypeEnum.ACCESSORY_DETAIL:
-                return validAccessories.length > 0;
-            default:
-                return false;
+        try {
+            const imageInput = { base64: analysisImage.base64, mimeType: analysisImage.mimeType };
+            // Re-using getStyleAnalysis as it's a generic text/image prompt handler
+            const result = await getStyleAnalysis(analysisQuestion, [imageInput]);
+            setAnalysisResult(result);
+        } catch (err) {
+            console.error("Failed to analyze photo:", err);
+            handleApiError(err, "Failed to analyze photo.");
+        } finally {
+            setIsAnalyzingPhoto(false);
         }
     };
+    
+    const handleSendMessage = async (id: GenerationType, message: string) => {
+        const imageToUpdate = generatedImages.find(img => img.id === id);
+        if (!imageToUpdate || !imageToUpdate.src) {
+            setError("Cannot modify an image that hasn't been generated yet.");
+            return;
+        }
+    
+        // 1. Add user message to history and set loading state
+        setGeneratedImages(prev => prev.map(img => {
+            if (img.id === id) {
+                const newHistory = [...(img.chatHistory || []), { author: 'user' as const, text: message }];
+                return { ...img, status: 'loading', chatHistory: newHistory, error: undefined };
+            }
+            return img;
+        }));
+    
+        try {
+            // 2. Construct the prompt
+            const refinementPrompt = `You are a helpful photo editing assistant. The user wants to modify the provided image.
+The original creative goal was: "${imageToUpdate.prompt}"
+Now, apply this specific change requested by the user: "${message}"
+Return only the newly generated image reflecting this change.`;
+    
+            const mimeType = imageToUpdate.src.match(/data:(.*);base64,/)?.[1] ?? 'image/png';
+            const base64 = imageToUpdate.src.split(',')[1];
+            const imageInput = { base64, mimeType };
+            
+            // 3. Call the API (reusing processImage is fine)
+            const newSrc = await processImage(refinementPrompt, [imageInput]);
+    
+            // 4. Update state with new image and model response
+            setGeneratedImages(prev => prev.map(img => {
+                if (img.id === id) {
+                    const newHistory = [...(img.chatHistory || []), { author: 'model' as const, text: "Here's the updated image." }];
+                    return { ...img, src: newSrc, status: 'done', chatHistory: newHistory };
+                }
+                return img;
+            }));
+    
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to refine image.';
+            handleApiError(err, 'Failed to refine image.');
+            // 5. Update state with error message
+            setGeneratedImages(prev => prev.map(img => {
+                if (img.id === id) {
+                    const newHistory = [...(img.chatHistory || []), { author: 'model' as const, text: `Sorry, I couldn't make that change. Error: ${errorMessage}` }];
+                    return { ...img, status: 'error', chatHistory: newHistory, error: errorMessage };
+                }
+                return img;
+            }));
+        }
+    };
+
+    const renderMarkdown = (text: string) => {
+        let html = text.replace(/</g, "&lt;").replace(/>/g, "&gt;"); // Basic sanitization
+        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+        html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+        html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+        html = html.replace(/^\* (.*$)/gim, '<li>$1</li>');
+        html = html.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+        html = html.replace(/<\/ul>\s*<ul>/g, ''); // Join adjacent lists
+        return html.split('\n\n').map(p => {
+            if (p.startsWith('<ul>') && p.endsWith('</ul>')) return p;
+            if (p.trim() === '') return '';
+            return `<p>${p.trim()}</p>`
+        }).join('');
+    };
+
+    const fullBodyPromptValidation = validatePrompt(customFullBodyPrompt);
+    const fullBodyBackPromptValidation = validatePrompt(customFullBodyBackPrompt);
+    const virtualTryOnPromptValidation = validatePrompt(customVirtualTryOnPrompt);
+    const vintedFrontPromptValidation = validatePrompt(customVintedFrontPrompt);
+    const vintedBackPromptValidation = validatePrompt(customVintedBackPrompt);
+
+    const isFullBodyGenerated = !!generatedImages.find(img => img.id === GenerationTypeEnum.FULL_BODY)?.src;
 
 
     return (
@@ -826,9 +1302,56 @@ const App: React.FC = () => {
                         />
 
                         <div className="mt-8 border-t border-zinc-700 pt-8">
+                            <h3 className="text-xl font-semibold text-center mb-6 text-zinc-200">Analizar Foto de Moda</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start max-w-4xl mx-auto">
+                                <ImageDropzone
+                                    id="analysis-image"
+                                    title="Subir Foto para Analizar"
+                                    onFileChange={setAnalysisImage}
+                                    currentFile={analysisImage}
+                                />
+                                <div className="space-y-4">
+                                    <div>
+                                        <label htmlFor="analysis-question" className="block text-sm font-medium text-zinc-300 mb-2">Tu Pregunta</label>
+                                        <textarea
+                                            id="analysis-question"
+                                            rows={4}
+                                            className="form-input w-full"
+                                            value={analysisQuestion}
+                                            onChange={(e) => setAnalysisQuestion(e.target.value)}
+                                            placeholder="Ej: Describe el estilo de este atuendo..."
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleAnalyzePhoto}
+                                        disabled={!analysisImage || !analysisQuestion || isAnalyzingPhoto}
+                                        className="w-full px-6 py-3 bg-teal-600 text-white font-semibold rounded-lg shadow-lg hover:bg-teal-500 disabled:bg-zinc-600 disabled:cursor-not-allowed transition-colors duration-200"
+                                    >
+                                        {isAnalyzingPhoto ? (
+                                            <span className="flex items-center justify-center">
+                                                <SpinnerIcon className="w-5 h-5 mr-2" />
+                                                Analizando...
+                                            </span>
+                                        ) : 'Analizar con Gemini'}
+                                    </button>
+                                    {analysisResult && (
+                                        <div className="mt-4 p-4 bg-zinc-900/50 rounded-lg border border-zinc-700 max-h-60 overflow-y-auto">
+                                            <h4 className="font-semibold text-zinc-200 mb-2">Resultado del Análisis</h4>
+                                            <div
+                                                className="text-zinc-300 text-sm prose-styles"
+                                                dangerouslySetInnerHTML={{ __html: renderMarkdown(analysisResult) }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+
+                        <div className="mt-8 border-t border-zinc-700 pt-8">
                             <h3 className="text-lg font-semibold text-center mb-4 text-zinc-200">Fidelidad del Modelo</h3>
                              <p className="text-center text-sm text-zinc-400 max-w-xl mx-auto mb-4">
-                                Elige la fidelidad del modelo. 'Inspirado' (recomendado) crea un modelo nuevo y único. 'Fiel' intenta un parecido cercano pero tiene más probabilidades de ser bloqueado por los filtros de seguridad.
+                                Elige la fidelidad del modelo. 'Maniquí Anónimo' crea un maniquí para máxima seguridad. 'Fiel' intenta replicar a la persona de referencia, lo cual puede ser bloqueado por filtros de seguridad en algunos casos. Si 'Fiel' falla, prueba con 'Maniquí'.
                             </p>
                             <div className="flex justify-center flex-wrap gap-2">
                                 {Object.entries(modelFidelityOptions).map(([id, { name }]) => (
@@ -880,6 +1403,21 @@ const App: React.FC = () => {
                              </div>
                         </div>
 
+                         <div className="mt-8 border-t border-zinc-700 pt-8">
+                            <h3 className="text-lg font-semibold text-center mb-4 text-zinc-200">Detalles de la Prenda (para Maniquí)</h3>
+                            <div className="max-w-xs mx-auto">
+                                <label htmlFor="garmentLengthCm" className="block text-sm font-medium text-zinc-300 mb-2">Largo de la Prenda (cm)</label>
+                                <input 
+                                    type="number" 
+                                    name="garmentLengthCm" 
+                                    id="garmentLengthCm" 
+                                    value={garmentLengthCm} 
+                                    onChange={(e) => setGarmentLengthCm(e.target.value)} 
+                                    placeholder="Ej: 95" 
+                                    className="form-input" 
+                                />
+                            </div>
+                        </div>
                         
                         <div className="mt-8 border-t border-zinc-700 pt-8">
                             <p className="text-center text-sm font-medium text-zinc-300 mb-3">Select Aspect Ratio</p>
@@ -895,6 +1433,25 @@ const App: React.FC = () => {
                                         }`}
                                     >
                                         {option.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        <div className="mt-8">
+                            <p className="text-center text-sm font-medium text-zinc-300 mb-3">Calidad de Generación</p>
+                            <div className="flex justify-center flex-wrap gap-2">
+                                {Object.entries(promptQualityOptions).map(([id, { name }]) => (
+                                    <button
+                                        key={id}
+                                        onClick={() => setPromptQuality(id as 'ultra' | 'fast')}
+                                        className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
+                                            promptQuality === id
+                                                ? 'bg-indigo-600 text-white'
+                                                : 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300'
+                                        }`}
+                                    >
+                                        {name}
                                     </button>
                                 ))}
                             </div>
@@ -977,37 +1534,81 @@ const App: React.FC = () => {
                             </div>
                         </div>
 
+                        <div className="mt-8 border-t border-zinc-700 pt-8">
+                            <h3 className="text-xl font-semibold text-center mb-2 text-zinc-200">👠 Shoe Swap (Post-Generation)</h3>
+                             <p className="text-center text-sm text-zinc-400 max-w-xl mx-auto mb-6">
+                                Genera primero el "Full Body Shot". Después, usa estos botones para cambiar el calzado en la imagen generada.
+                            </p>
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 max-w-lg mx-auto">
+                                {Object.entries(shoeSwapOptions).map(([id, { name }]) => (
+                                    <button 
+                                        key={id} 
+                                        onClick={() => handleShoeSwap(id)}
+                                        disabled={!isFullBodyGenerated || isLoading || isSwappingShoes}
+                                        className="w-full px-3 py-2 text-xs font-semibold rounded-md transition-colors duration-200 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed"
+                                    >
+                                        {name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
 
                         <div className="mt-8 border-t border-zinc-700 pt-8">
-                            <h3 className="text-lg font-semibold text-center mb-4 text-zinc-200">Customize Prompts (Optional)</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {generatedImages.map((image) => (
-                                    <div key={image.id}>
-                                        <label htmlFor={`prompt-${image.id}`} className="block text-sm font-medium text-zinc-300 mb-2">{image.title}</label>
-                                        <textarea
-                                            id={`prompt-${image.id}`}
-                                            rows={4}
-                                            className="form-input w-full"
-                                            value={image.prompt}
-                                            onChange={(e) => handlePromptChange(image.id, e.target.value)}
-                                            aria-label={`Custom prompt for ${image.title}`}
-                                        />
-                                    </div>
-                                ))}
+                            <h3 className="text-lg font-semibold text-center mb-4 text-zinc-200">Customize Prompts (Advanced)</h3>
+                             <p className="text-center text-sm text-zinc-400 max-w-xl mx-auto mb-6">
+                                Aquí puedes editar el prompt base para varias de las generaciones clave. El editor te dará sugerencias para mejorar los resultados.
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                                <PromptEditor
+                                    id="full-body-prompt"
+                                    label="Full Body Shot (Front) - Base"
+                                    value={customFullBodyPrompt}
+                                    onChange={setCustomFullBodyPrompt}
+                                    validation={fullBodyPromptValidation}
+                                />
+                                <PromptEditor
+                                    id="full-body-back-prompt"
+                                    label="Full Body Shot (Back) - Base"
+                                    value={customFullBodyBackPrompt}
+                                    onChange={setCustomFullBodyBackPrompt}
+                                    validation={fullBodyBackPromptValidation}
+                                />
+                                <PromptEditor
+                                    id="virtual-try-on-prompt"
+                                    label="Virtual Try-On - Base"
+                                    value={customVirtualTryOnPrompt}
+                                    onChange={setCustomVirtualTryOnPrompt}
+                                    validation={virtualTryOnPromptValidation}
+                                />
+                                <PromptEditor
+                                    id="vinted-front-prompt"
+                                    label="Pose Vinted (Front) - Base"
+                                    value={customVintedFrontPrompt}
+                                    onChange={setCustomVintedFrontPrompt}
+                                    validation={vintedFrontPromptValidation}
+                                />
+                                <PromptEditor
+                                    id="vinted-back-prompt"
+                                    label="Pose Vinted (Back) - Base"
+                                    value={customVintedBackPrompt}
+                                    onChange={setCustomVintedBackPrompt}
+                                    validation={vintedBackPromptValidation}
+                                />
                             </div>
                         </div>
 
                         <div className="mt-8 text-center flex justify-center items-center gap-4">
                             <button
                                 onClick={() => setIsVintedModalOpen(true)}
-                                disabled={isLoading || isAnalyzing || isSuggesting}
+                                disabled={isLoading || isAnalyzing || isSuggesting || isSwappingShoes}
                                 className="px-10 py-4 bg-purple-600 text-white font-semibold rounded-lg shadow-lg hover:bg-purple-500 disabled:bg-zinc-600 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-300 ease-in-out"
                             >
                                 Asistente Vinted
                             </button>
                             <button
                                 onClick={handleGenerate}
-                                disabled={!modelImage || (!outfitImage && !backOutfitImage) || isLoading || isAnalyzing || isSuggesting}
+                                disabled={!modelImage || (!outfitImage && !backOutfitImage) || isLoading || isAnalyzing || isSuggesting || isSwappingShoes}
                                 className="px-10 py-4 bg-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:bg-indigo-500 disabled:bg-zinc-600 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-300 ease-in-out transform hover:scale-105 disabled:scale-100"
                             >
                                 {isLoading ? 'Generating All...' : 'Generate Photoshoot'}
@@ -1028,6 +1629,7 @@ const App: React.FC = () => {
                                     onGenerate={() => handleGenerateSingle(image.id)}
                                     onSuggestAccessories={handleSuggestAccessories}
                                     isGenerationPossible={getIsGenerationPossible(image.id)}
+                                    onSendMessage={(message) => handleSendMessage(image.id, message)}
                                 />
                             ))}
                         </div>
@@ -1068,7 +1670,7 @@ const App: React.FC = () => {
             {showInstallBanner && (
                 <div className="fixed bottom-4 right-4 z-50 animate-fade-in-up">
                     <div className="bg-indigo-600 text-white rounded-lg shadow-2xl p-4 flex items-center gap-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-indigo-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                        <svg xmlns="http://www.w.org/2000/svg" className="h-8 w-8 text-indigo-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                         <div>
                             <p className="font-semibold">Instalar App</p>
                             <p className="text-sm text-indigo-200">Añadir a pantalla de inicio para acceso rápido.</p>
@@ -1113,6 +1715,10 @@ const App: React.FC = () => {
                 .animate-fade-in-up {
                     animation: fade-in-up 0.5s ease-out forwards;
                 }
+                .prose-styles strong { color: #e4e4e7; font-weight: 600; }
+                .prose-styles p { margin-bottom: 0.5em; line-height: 1.6; }
+                .prose-styles ul { list-style-type: disc; padding-left: 1.5rem; margin-top: 0.5em; margin-bottom: 0.5em; }
+                .prose-styles li { margin-bottom: 0.25em; }
             `}</style>
         </div>
     );

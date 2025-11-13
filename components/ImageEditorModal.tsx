@@ -1,8 +1,10 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { GeneratedImage, GenerationType } from '../types';
+// Fix: Import ImageInput from the centralized types file.
+import type { GeneratedImage, GenerationType, ImageInput } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
-import { processImage, ImageInput } from '../services/geminiService';
+import { processImage } from '../services/geminiService';
 import { SpinnerIcon } from './icons/SpinnerIcon';
 import { virtualBackgrounds } from '../lib/backgrounds';
 

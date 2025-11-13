@@ -1,21 +1,21 @@
 
 
 import React, { useState, useCallback, useEffect } from 'react';
-import type { UploadedFile, ModelMeasurements, MedidasPrenda, AnalisisMedidas, SugerenciaPrecio, AnalisisVisual } from '../types';
+// Fix: Import ImageInput from the centralized types file.
+import type { UploadedFile, ModelMeasurements, MedidasPrenda, AnalisisMedidas, SugerenciaPrecio, AnalisisVisual, ImageInput } from '../types';
 import { GarmentConditionEnum } from '../types';
 import { 
     getVisualAnalysisForVinted,
     generateAnonymizedImage, 
     generateInfographic,
-    processImage,
-    ImageInput 
+    processImage
 } from '../services/geminiService';
 import { analizarMedidasPrenda } from '../utils/garmentUtils';
 import { calcularPrecioSugerido } from '../lib/pricingFactors';
-import { generarDescripcionOptimizada, generarTituloOptimizado, generarHashtags } from '../../lib/vintedTemplates';
+import { generarDescripcionOptimizada, generarTituloOptimizado, generarHashtags } from '../lib/vintedTemplates';
 import { cropImage } from '../utils/fileUtils';
 import { parseCm } from '../utils/parsingUtils';
-import { existeCalibración } from '../../utils/clasificadorLargos';
+import { existeCalibración } from '../utils/clasificadorLargos';
 import { CloseIcon } from './icons/CloseIcon';
 import { SpinnerIcon } from './icons/SpinnerIcon';
 import ImageDropzone from './ImageDropzone'; // Import the component
@@ -613,8 +613,7 @@ const VintedAssistantModal: React.FC<VintedAssistantModalProps> = ({ isOpen, onC
                         </div>
                     )}
                 </div>
-            </div>
-             <style>{`
+            <style>{`
                 .prose-styles strong { color: #e4e4e7; font-weight: 600; }
                 .prose-styles p { margin-bottom: 1em; line-height: 1.6; }
                 .prose-styles ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1em; }
@@ -896,175 +895,28 @@ const VintedAssistantModal: React.FC<VintedAssistantModalProps> = ({ isOpen, onC
                 .btn-guardar {
                   background: linear-gradient(135deg, #22c55e, #16a34a);
                   color: white;
-                  padding: 0.75rem 2rem;
+                  padding: 0.75rem 1.5rem;
                   border: none;
-                  border-radius: 8px;
-                  font-size: 1.1rem;
+                  border-radius: 10px;
                   font-weight: 700;
                   cursor: pointer;
                   transition: all 0.2s ease;
                 }
                 .btn-guardar:hover {
                     transform: translateY(-2px);
-                    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+                    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
                 }
-                .mensaje-exito {
+                 .mensaje-exito {
                     margin-top: 1rem;
-                    padding: 1rem;
-                    background-color: #10b98120;
-                    color: #6ee7b7;
-                    border: 1px solid #10b981;
-                    border-radius: 8px;
-                }
-
-                /* ClasificadorLargoVisual/styles.css */
-                .clasificador-largo-visual {
-                    background: #1f2937;
-                    padding: 1.5rem;
-                    border-radius: 15px;
-                    border: 1px solid #374151;
-                }
-
-                .resultado {
-                    text-align: center;
-                    border-bottom: 1px solid #374151;
-                    padding-bottom: 1.5rem;
-                    margin-bottom: 1.5rem;
-                }
-                .categoria-badge {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 0.75rem;
-                    background: #4f46e5;
-                    color: white;
-                    padding: 0.5rem 1.25rem;
-                    border-radius: 9999px;
-                    font-size: 1.25rem;
-                    font-weight: bold;
-                    margin-bottom: 1rem;
-                }
-                .badge-exacto {
-                    background-color: #10b981;
-                    color: white;
-                    font-size: 0.75rem;
-                    padding: 0.2rem 0.5rem;
-                    border-radius: 9999px;
-                }
-
-                .detalles .punto-anatomico {
-                    color: #e5e7eb;
-                    font-size: 1.1rem;
-                    margin-bottom: 0.25rem;
-                }
-                .detalles .descripcion {
-                    color: #9ca3af;
-                }
-                .medida-visual {
-                    margin: 1.5rem 0;
-                    padding: 1rem 0;
-                    display: flex;
-                    justify-content: center;
-                }
-                .escala {
-                    width: 120px;
-                    height: 250px;
-                    background: #374151;
-                    border-radius: 60px 60px 0 0;
-                    position: relative;
-                }
-                .cuerpo {
-                    width: 100%;
-                    height: 100%;
-                    position: relative;
-                }
-                .marcador {
-                    position: absolute;
-                    width: 100%;
-                    display: flex;
-                    align-items: center;
-                }
-                .marcador .punto, .marcador .punto-ref {
-                    width: 10px;
-                    height: 10px;
-                    border-radius: 50%;
-                    margin-left: -5px;
-                    position: absolute;
-                    left: 50%;
-                }
-                .marcador .punto { background-color: #f59e0b; }
-                .marcador .punto-ref { background-color: #6b7280; }
-                .marcador .etiqueta-punto, .marcador .etiqueta-ref {
-                    font-size: 0.75rem;
-                    color: #9ca3af;
-                    position: absolute;
-                    left: calc(50% + 15px);
-                    white-space: nowrap;
-                }
-                .marcador .etiqueta-punto {
-                    font-weight: bold;
-                    color: #d1d5db;
-                }
-
-                .largo-prenda .linea-medida {
-                    position: absolute;
-                    left: 50%;
-                    width: 100%;
-                    height: 3px;
-                    background-color: #ef4444;
-                    transform: translateX(-50%);
-                }
-                .largo-prenda .etiqueta-prenda {
-                    position: absolute;
-                    left: calc(-50% - 15px);
-                    transform: translateX(-100%);
-                    background: #ef4444;
-                    color: white;
-                    padding: 0.2rem 0.5rem;
-                    border-radius: 5px;
-                    font-size: 0.8rem;
-                    font-weight: bold;
-                    white-space: nowrap;
-                }
-
-                .keywords { margin-top: 1rem; }
-                .keywords strong { color: #9ca3af; font-size: 0.9rem; }
-                .tags {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 0.5rem;
-                    margin-top: 0.5rem;
-                    justify-content: center;
-                }
-                .tag {
-                    background-color: #374151;
-                    color: #d1d5db;
-                    padding: 0.25rem 0.75rem;
-                    border-radius: 9999px;
-                    font-size: 0.85rem;
-                }
-                .referencia-rapida summary {
-                    cursor: pointer;
-                    font-weight: 600;
-                    color: #9ca3af;
-                    margin-top: 1.5rem;
-                }
-                .tabla-container { margin-top: 1rem; max-height: 200px; overflow-y: auto; }
-                .tabla-container table { width: 100%; border-collapse: collapse; }
-                .tabla-container th, .tabla-container td {
+                    color: #22c55e;
+                    background-color: rgba(34, 197, 94, 0.1);
                     padding: 0.75rem;
-                    text-align: left;
-                    border-bottom: 1px solid #374151;
-                }
-                .tabla-container th { font-size: 0.8rem; color: #9ca3af; }
-                .tabla-container tr.actual { background-color: #4f46e530; }
-                .tabla-container .badge-actual {
-                    font-size: 0.7rem;
-                    color: #c7d2fe;
-                    margin-left: 0.5rem;
+                    border-radius: 8px;
+                    font-weight: 500;
                 }
             `}</style>
+            </div>
         </div>
     );
 };
-
 export default VintedAssistantModal;
