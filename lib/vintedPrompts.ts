@@ -1,93 +1,64 @@
 // lib/vintedPrompts.ts
 
-export const vintedMasterFront = `**PROMPT FRONTAL PROFESIONAL:**
+export const vintedMasterFront = `**PROMPT FRONTAL PROFESIONAL PARA VINTED:**
 
-Create a hyperrealistic e-commerce photograph for Vinted marketplace.
+Create a hyperrealistic e-commerce photograph for a marketplace like Vinted. The subject is wearing the garment from the second image.
 
-**TECHNICAL SPECIFICATIONS:**
-- Camera: Shot with Canon 5D Mark IV, 50mm lens, f/8, soft studio lighting
-- Style: Clean commercial fashion photography, not artistic
-- Resolution: 4K, sharp focus on garment details
-- Color grading: Neutral, true-to-life colors
-
-**MODEL & POSE:**
-- Professional female model, size EU 38/Medium build
-- Natural standing pose: weight evenly distributed, arms relaxed at sides
-- Subtle hand positioning: one hand lightly touching hip or thigh
-- Body angle: Straight on, very slight 10-degree turn for dimension
-- Natural posture showing how garment falls on real body
+**SUBJECT & POSE (INSTRUCTIONS WILL BE PREPENDED DYNAMICALLY):**
+- The main subject's characteristics (human model or mannequin) and body proportions will be provided in a separate instruction block.
+- The pose should be a natural, standing pose suitable for e-commerce: weight evenly distributed, arms relaxed.
+- The body should be angled straight-on to the camera.
+- The overall look must be natural, showing how the garment falls on a body.
 
 **FRAMING - CRITICAL:**
-- Frame cuts at lower neck/collarbone level (NO HEAD/FACE visible)
-- Full body visible down to ankles/feet
-- 80% of frame filled with model, 10% margin each side
-- Vertical orientation, 3:4 aspect ratio ideal for mobile viewing
+- Frame cuts at the lower neck/collarbone level to ensure anonymity (NO HEAD/FACE visible).
+- Full body shot showing the garment down to the ankles/feet.
+- Vertical orientation, 3:4 aspect ratio, ideal for mobile viewing.
 
 **GARMENT PRESENTATION:**
-- Garment from reference image
-- Natural fabric behavior: realistic wrinkles, drape, movement
-- Proper fit on body: not too tight, not too loose
-- Visible texture details: fabric weave, buttons, zippers, seams
+- Garment from the second reference image.
+- Natural fabric behavior: realistic wrinkles, drape, and texture.
+- The fit on the body must be accurate and natural.
 
 **STUDIO SETUP:**
-- Background: Seamless paper backdrop, color #F5F5F5 (95% white)
-- Lighting: Two softboxes 45 degrees front, one fill light
-- No shadows under feet (shadowless floor)
-- Even illumination highlighting garment texture
+- Background: Seamless, professional, light grey paper backdrop (#F5F5F5).
+- Lighting: Clean, even, soft studio lighting (e.g., two softboxes at 45 degrees).
+- Shadowless floor.
 
 **MANDATORY REQUIREMENTS:**
-Professional product photo aesthetic, NOT:
-- CGI/3D render look
-- Mannequin/plastic appearance  
-- Artistic fashion editorial
-- Instagram lifestyle photo
-- AI-generated artifacts
+The final image must have a professional product photo aesthetic.
+AVOID: Artistic editorials, lifestyle photos, inconsistent lighting, or obvious AI artifacts.
 
-**OUTPUT:** Commercial catalog photo, anonymous model, focus on garment`;
+**OUTPUT:** A clean, commercial catalog-style photo focused on the garment.`;
 
-export const vintedMasterBack = `**PROMPT TRASERA PROFESIONAL:**
+export const vintedMasterBack = `**PROMPT TRASERA PROFESIONAL PARA VINTED:**
 
-Create a hyperrealistic BACK VIEW e-commerce photograph for Vinted.
+Create a hyperrealistic BACK VIEW e-commerce photograph for a marketplace like Vinted. The subject is wearing the garment from the second image.
 
-**CAMERA SETUP:**
-- Shooting from directly behind model
-- Same height as front view for consistency
-- Canon 5D Mark IV, 50mm lens, f/8
-- Identical lighting setup as front view
+**SUBJECT & POSE (INSTRUCTIONS WILL BE PREPENDED DYNAMICALLY):**
+- The main subject's characteristics (human model or mannequin) and body proportions will be provided in a separate instruction block.
+- The pose should be from directly behind, facing away from the camera.
+- Hair should be pulled aside if it obscures back details of the garment.
 
-**MODEL POSITIONING - BACK VIEW:**
-- Standing naturally, facing away from camera
-- Weight evenly distributed, shoulders relaxed
-- Arms hanging naturally or one hand on hip (visible from back)
-- Hair pulled to one side or up (if would obscure garment detail)
-- Same model as front view for consistency
+**FRAMING - CRITICAL:**
+- Frame cuts at the lower neck/collarbone level (NO HEAD/FACE visible).
+- Full body shot showing the garment down to the ankles/feet.
+- Vertical orientation, 3:4 aspect ratio.
 
-**CRITICAL FRAMING:**
-- Top of frame: Base of neck/top of shoulders
-- NO head, hair only if falls below neck
-- Bottom of frame: Include feet/shoes
-- Maintain exact same crop ratio as front view
+**GARMENT PRESENTATION (BACK VIEW):**
+- Focus on back design elements: zippers, back cutouts, ties.
+- Show how the garment fits across the shoulders and back.
 
-**GARMENT DETAILS TO CAPTURE:**
-- Back design elements: zippers, buttons, patterns
-- How garment fits across shoulders and back
-- Waistline definition from behind
-- Length and hemline from back angle
-- Any back pockets, belts, or details
+**STUDIO SETUP:**
+- Background: Seamless, professional, light grey paper backdrop (#F5F5F5).
+- Lighting: Clean, even, soft studio lighting.
+- Shadowless floor.
 
-**TECHNICAL CONSISTENCY:**
-- Identical background: #F5F5F5 seamless
-- Same lighting temperature (5600K daylight)
-- Matching exposure and color grading
-- Same post-processing style
+**MANDATORY REQUIREMENTS:**
+- Must match the style and quality of the front view image.
+- AVOID: Subject looking over the shoulder, twisted poses.
 
-**AVOID:**
-- Model looking over shoulder
-- Twisted or unnatural poses
-- Different lighting than front
-- Shadows inconsistent with front view
-
-**RESULT:** Professional back view that pairs perfectly with front`;
+**OUTPUT:** A clean, commercial catalog-style back view photo.`;
 
 const commonTechnicalSpecs = `
 **TECHNICAL SPECIFICATIONS:**
@@ -118,7 +89,7 @@ Professional product photo aesthetic, NOT:
 export const vintedSpecialized = {
   dress: `**VESTIDO - VISTA FRONTAL:**
 
-Professional Vinted listing photo of woman wearing [describe dress].
+Vinted listing photo. The subject is wearing the dress from the reference image.
 
 **POSE SPECIFICS FOR DRESSES:**
 - One hand gently holding dress fabric at thigh level
@@ -135,7 +106,7 @@ ${commonTechnicalSpecs}`,
 
   top: `**TOP/BLUSA - VISTA FRONTAL:**
 
-Commercial photo of model wearing [describe top] with simple fitted jeans.
+Vinted listing photo. The subject is wearing the top from the reference image, paired with simple fitted jeans.
 
 **POSE FOR TOPS:**
 - Both arms slightly away from body to show shirt cut
@@ -154,7 +125,7 @@ ${commonTechnicalSpecs}`,
 
   pants: `**PANTALONES - VISTA FRONTAL:**
 
-E-commerce photo focusing on [describe pants] worn with simple white tee.
+Vinted listing photo. The subject is wearing the pants from the reference image, paired with a simple white tee.
 
 **POSE FOR PANTS:**
 - Feet slightly apart to show pant cut
@@ -174,7 +145,7 @@ ${commonTechnicalSpecs}`,
 
   jacket: `**CHAQUETA - VISTA FRONTAL:**
 
-Professional photo of [describe jacket] worn open over basic outfit.
+Vinted listing photo. The subject is wearing the jacket from the reference image, open over a basic outfit.
 
 **POSE FOR OUTERWEAR:**
 - Jacket open to show lining

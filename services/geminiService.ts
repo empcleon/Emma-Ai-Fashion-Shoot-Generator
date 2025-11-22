@@ -1,5 +1,3 @@
-
-
 import { GoogleGenAI, Modality, GenerateContentResponse, HarmCategory, HarmBlockThreshold } from "@google/genai";
 // Fix: Import ImageInput from the centralized types file.
 import type { ModelMeasurements, MedidasPrenda, AnalisisMedidas, AnalisisVisual, ImageInput } from '../types';
@@ -159,7 +157,7 @@ const callGeminiApiForImage = (prompt: string, images: ImageInput[]): Promise<st
     });
 };
 
-const callGeminiApiForText = (prompt: string, images: ImageInput[]): Promise<string> => {
+const callGeminiApiForText = (prompt: string, images: ImageInput[], systemInstruction?: string): Promise<string> => {
     return addToQueue(async () => {
         try {
             const imageParts = images.map(image => ({
@@ -176,6 +174,9 @@ const callGeminiApiForText = (prompt: string, images: ImageInput[]): Promise<str
                     contents: {
                         parts: [...imageParts, textPart],
                     },
+                    config: {
+                        systemInstruction: systemInstruction,
+                    }
                 });
             
             return response.text.trim();
@@ -193,8 +194,8 @@ export const categorizeImage = async (image: ImageInput): Promise<string> => {
     return callGeminiApiForText(prompt, [image]);
 };
 
-export const getStyleAnalysis = async (prompt: string, images: ImageInput[]): Promise<string> => {
-    return callGeminiApiForText(prompt, images);
+export const getStyleAnalysis = async (prompt: string, images: ImageInput[], systemInstruction?: string): Promise<string> => {
+    return callGeminiApiForText(prompt, images, systemInstruction);
 };
 
 export const getAccessorySuggestions = async (prompt: string, images: ImageInput[]): Promise<string> => {

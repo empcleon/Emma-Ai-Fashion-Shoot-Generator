@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 // Fix: Import ImageInput from the centralized types file.
 import type { GeneratedImage, GenerationType, ImageInput } from '../types';
@@ -15,6 +13,57 @@ interface ImageEditorModalProps {
 }
 
 type CropRatio = 'original' | '1:1' | '4:3' | '16:9' | '3:4';
+
+const styleFilters = [
+    { 
+        id: 'manga', 
+        name: '✒️ Manga (B&W)', 
+        description: 'Estilo japonés clásico, blanco y negro, tramas y líneas de tinta.',
+        prompt: 'Create a black and white manga drawing based on this image reference. Use dramatic ink lines and screentones. The subject must be depicted as a stylized fictional character. Do not generate a photorealistic person.' 
+    },
+    { 
+        id: 'anime', 
+        name: '🎨 Anime (Color)', 
+        description: 'Estilo animación de alta calidad (tipo Makoto Shinkai), colores vibrantes.',
+        prompt: 'Create a vibrant anime drawing based on this image reference. Use lush lighting and cel-shading. The subject must be depicted as a stylized anime character. Do not generate a photorealistic person.' 
+    },
+    { 
+        id: 'comic', 
+        name: '💥 Western Comic', 
+        description: 'Estilo cómic americano moderno, líneas gruesas, sombras duras y colores saturados.',
+        prompt: 'Create a western comic book drawing based on this image reference. Use bold outlines and saturated colors. The subject must be depicted as a fictional comic character. Do not generate a photorealistic person.' 
+    },
+    { 
+        id: 'vintage-comic', 
+        name: '📜 Vintage Comic', 
+        description: 'Retro años 50, puntos Ben-Day, colores desaturados y papel envejecido.',
+        prompt: 'Create a vintage 1950s comic book drawing based on this image reference. Use prominent Ben-Day dots (halftone), aged paper texture, and a retro color palette. The subject must look like a character from a classic comic. Do not generate a photorealistic person.' 
+    },
+    { 
+        id: 'noir-comic', 
+        name: '🕵️ Noir Graphic Novel', 
+        description: 'Alto contraste B&N, sombras dramáticas (estilo Sin City).',
+        prompt: 'Create a gritty Noir graphic novel drawing based on this image reference. Use high-contrast black and white with heavy, dramatic shadows (chiaroscuro) and white outlines. The subject must look like a stylized character from a crime comic. Do not generate a photorealistic person.' 
+    },
+    { 
+        id: 'bd', 
+        name: '🖊️ Ligne Claire (BD)', 
+        description: 'Estilo Franco-Belga (Tintín), líneas limpias y uniformes, colores planos.',
+        prompt: 'Create a Franco-Belgian "Ligne Claire" (clear line) drawing based on this image reference. Use clean, uniform black outlines, flat non-gradient colors, and precise details. The subject must look like a character from a European comic book. Do not generate a photorealistic person.' 
+    },
+    { 
+        id: 'pop-art', 
+        name: '🍭 Pop Art', 
+        description: 'Estilo Warhol/Lichtenstein, colores primarios y tramas grandes.',
+        prompt: 'Create a Pop Art style illustration based on this image. Use bold black outlines, bright primary colors, and dramatic comic book dots (Lichtenstein style). The subject should look like a stylized piece of art. Do not generate a photorealistic person.' 
+    },
+    { 
+        id: 'sketch', 
+        name: '✏️ Fashion Sketch', 
+        description: 'Ilustración de moda artística, ideal para bocetos de diseño.',
+        prompt: 'Create a hand-drawn fashion sketch illustration based on this image. Use loose charcoal lines and watercolor splashes. Focus on the silhouette and fabric movement. The image must be a drawing, not a photo.' 
+    },
+];
 
 const ImageEditorModal: React.FC<ImageEditorModalProps> = ({ image, onClose, onSave }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -203,6 +252,24 @@ const ImageEditorModal: React.FC<ImageEditorModalProps> = ({ image, onClose, onS
                             <button onClick={handleRefine} disabled={isProcessing || !refinementPrompt} className="w-full mt-2 btn-secondary">
                                 Refine Image
                             </button>
+                        </div>
+
+                        {/* Creative Filters Section */}
+                        <div>
+                            <h3 className="text-sm font-medium text-zinc-300 mb-2">Filtros Creativos</h3>
+                            <div className="grid grid-cols-2 gap-2">
+                                {styleFilters.map(filter => (
+                                    <button
+                                        key={filter.id}
+                                        onClick={() => handleAiProcess(filter.prompt)}
+                                        disabled={isProcessing}
+                                        className="btn-secondary text-xs flex flex-col items-center justify-center py-2 h-auto gap-1"
+                                        title={filter.description}
+                                    >
+                                        <span className="text-center">{filter.name}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                         
                         <div>

@@ -1,11 +1,8 @@
-
-
-
-
 import React, { useState, useCallback, useEffect } from 'react';
 import type { GenerationType, UploadedFile, GeneratedImage, ClosetItem, ModelMeasurements, AccessorySuggestion, ImageInput } from './types';
 import { GenerationTypeEnum, ClosetCategoryEnum, ClosetCategory } from './types';
 import { generateImage, processImage, categorizeImage, getStyleAnalysis, getAccessorySuggestions } from './services/geminiService';
+import { MANNEQUIN_3D_MODEL_URL } from './services/assetService';
 import { generarFotoConSilueta } from './utils/siluetaEscalada';
 import ImageDropzone from './components/ImageDropzone';
 import GeneratedImageCard from './components/GeneratedImageCard';
@@ -14,12 +11,14 @@ import VirtualCloset from './components/VirtualCloset';
 import VintedAssistantModal from './components/VintedAssistantModal';
 import AccessorySuggestionModal from './components/AccessorySuggestionModal';
 import PromptEditor from './components/PromptEditor';
+import ThreeDViewer from './components/ThreeDViewer';
 import { resizeDataUrl, resizeAndEncodeImage } from './utils/fileUtils';
 import { CloseIcon } from './components/icons/CloseIcon';
 import { SpinnerIcon } from './components/icons/SpinnerIcon';
 import { fullBodyPrompts } from './lib/prompts';
 import { validatePrompt } from './lib/promptValidator';
 import { vintedMasterFront, vintedMasterBack, vintedSpecialized } from './lib/vintedPrompts';
+import { ASSISTANT_SYSTEM_INSTRUCTION } from './lib/assistantSystemInstruction';
 
 
 const initialGeneratedImages: GeneratedImage[] = [
@@ -128,6 +127,70 @@ Generate a cinematic, ultra-realistic, full-body editorial photograph of a fashi
         status: 'pending',
         chatHistory: []
     },
+    {
+        id: GenerationTypeEnum.MANGA_PAGE,
+        title: 'Manga Page (B&W)',
+        prompt: "Create a visually striking black and white Japanese manga page. The layout should feature 2-3 dynamic panels reading right-to-left. \n\n**CONTENT:**\n- Panel 1 (Main): A dynamic full-body action pose of a fictional manga character wearing the outfit from the second reference image.\n- Panel 2 (Detail): A dramatic close-up of the character's face showing determination or emotion.\n\n**STYLE:**\n- Authentic manga aesthetic: High-contrast black ink, screentones (ben-day dots) for shading, and speed lines.\n- The character should have stylized manga features (large expressive eyes, spiky/flowy hair) but the garment details must be recognizable. Ensure the character looks like a stylized illustration, not a real photo. Do not generate a photorealistic person.",
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
+    {
+        id: GenerationTypeEnum.COMIC_COVER,
+        title: 'Comic Book Cover',
+        prompt: "Generate a dynamic American comic book cover art.\n\n**SUBJECT:**\nAn illustration of a fictional superhero character wearing the provided garment, portrayed in an action pose.\n\n**STYLE:**\n- Modern Western comic style: Bold black outlines, vibrant saturated colors, heavy dramatic shadows.\n- Vertical cover layout with space at the top for a title.\n- Background: Abstract cityscape or dramatic action scene color field. Ensure the result is an illustration, not a photo. Do not generate a photorealistic person.",
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
+    {
+        id: GenerationTypeEnum.VINTAGE_COMIC,
+        title: 'Vintage Comic (1950s)',
+        prompt: "Create a vintage 1950s comic book panel art. \n\n**SUBJECT:**\nAn illustration of a fictional character wearing the provided garment.\n\n**STYLE:**\n- Retro aesthetic: Prominent Ben-Day dots (halftone), aged paper texture, offset printing look.\n- Colors: Muted, retro palette (cyan, magenta, yellow).\n- The character must be a stylized illustration, not a real person.",
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
+    {
+        id: GenerationTypeEnum.NOIR_COMIC,
+        title: 'Noir Graphic Novel',
+        prompt: "Create a dark, gritty Noir graphic novel panel.\n\n**SUBJECT:**\nAn illustration of a fictional character wearing the provided garment.\n\n**STYLE:**\n- High contrast Black & White.\n- Heavy, dramatic shadows (chiaroscuro) and stark lighting.\n- Sin City aesthetic.\n- The character must be a stylized illustration, not a real person.",
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
+    {
+        id: GenerationTypeEnum.BD_COMIC,
+        title: 'Ligne Claire (BD)',
+        prompt: "Create a Franco-Belgian 'Ligne Claire' (Clear Line) illustration.\n\n**SUBJECT:**\nAn illustration of a fictional character wearing the provided garment.\n\n**STYLE:**\n- Clean, uniform black outlines.\n- Flat, vibrant colors without gradients.\n- Detailed background.\n- Tintin/Moebius aesthetic.\n- The character must be a stylized illustration, not a real person.",
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
+    {
+        id: GenerationTypeEnum.ANIME_CHARACTER,
+        title: 'Anime Character',
+        prompt: "Create a vibrant Anime character illustration.\n\n**SUBJECT:**\nAn illustration of a fictional anime character wearing the provided garment.\n\n**STYLE:**\n- High-quality modern anime style.\n- Cel-shading, lush lighting, vibrant colors.\n- Stylized facial features.\n- The character must be a stylized illustration, not a real person.",
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
+    {
+        id: GenerationTypeEnum.POP_ART,
+        title: 'Pop Art Illustration',
+        prompt: "Create a Pop Art illustration.\n\n**SUBJECT:**\nAn artistic representation of a fictional character wearing the provided garment.\n\n**STYLE:**\n- Warhol/Lichtenstein aesthetic.\n- Bold black outlines.\n- Bright, saturated primary colors.\n- Dramatic dot patterns.\n- The character must be a stylized illustration, not a real person.",
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
+    {
+        id: GenerationTypeEnum.FASHION_SKETCH,
+        title: 'Fashion Sketch',
+        prompt: "Generate a hand-drawn fashion illustration sketch of the model wearing the garment. Use loose charcoal lines and watercolor splashes. Emphasize the silhouette and movement of the fabric. The image must be a drawing, not a photo. The subject must be depicted as a stylized illustration, not a real person.",
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
      {
         id: GenerationTypeEnum.SILHOUETTE_TRY_ON,
         title: 'Prueba en Maniquí (Largo Exacto)',
@@ -172,6 +235,14 @@ const promptQualityOptions: Record<'ultra' | 'fast', { name: string }> = {
 
 const promptTemplates = {
     'default': { name: 'Default', modifier: '' },
+    'manga': { name: 'Manga (B&W)', modifier: ' in a high-quality black and white Japanese manga style illustration. Use dramatic ink lines, intricate screentones (ben-day dots), and dynamic composition. The subject must be depicted as a stylized fictional character. Do not generate a photorealistic person.' },
+    'anime': { name: 'Anime (Color)', modifier: ' in a vibrant, high-fidelity anime art style illustration. Use lush lighting, detailed backgrounds, and cel-shading. The subject must be depicted as a stylized anime character. Do not generate a photorealistic person.' },
+    'comic': { name: 'Western Comic', modifier: ' in a modern Western comic book style illustration. Use bold black outlines, vibrant saturated colors, and dramatic heavy shadows. The subject must be depicted as a fictional comic book character. Do not generate a photorealistic person.' },
+    'vintage-comic': { name: 'Vintage Comic', modifier: ' in a vintage 1950s comic book style illustration. Use prominent Ben-Day dots (halftone), aged paper texture, and a retro color palette. The subject must look like a fictional character from a classic comic. Do not generate a photorealistic person.' },
+    'noir-comic': { name: 'Noir Graphic Novel', modifier: ' in a gritty Noir graphic novel style. Use high-contrast black and white with heavy, dramatic shadows (chiaroscuro) and white outlines. The subject must look like a stylized fictional character from a crime comic. Do not generate a photorealistic person.' },
+    'bd': { name: 'Ligne Claire (BD)', modifier: ' in a Franco-Belgian "Ligne Claire" (clear line) style illustration. Use clean, uniform black outlines, flat non-gradient colors, and precise details. The subject must look like a fictional character from a European comic book. Do not generate a photorealistic person.' },
+    'sketch': { name: 'Fashion Sketch', modifier: ' as a hand-drawn fashion illustration sketch. Use loose charcoal lines and watercolor splashes. Emphasize the silhouette and movement of the fabric. The image must be a drawing, not a photo.' },
+    'pop-art': { name: 'Pop Art', modifier: ' in a vibrant, pop-art style with bold, saturated colors, graphic patterns, and a playful, energetic feel. The image must be an artistic illustration.' },
     'cinematic': { name: 'Cinematic', modifier: ' in a cinematic style with dramatic lighting, high contrast, and film grain.' },
     'vintage': { name: 'Vintage', modifier: ' as a vintage photograph with sepia tones, a nostalgic feel, and slight film grain, as if shot on 8mm film.' },
     'studio': { name: 'Studio Lighting', modifier: ' with professional studio lighting against a clean, minimalist background, emphasizing sharp focus and high-fashion aesthetics.' },
@@ -183,7 +254,6 @@ const promptTemplates = {
     'edgy': { name: 'Edgy', modifier: ' in an edgy, high-contrast style with gritty urban textures, dynamic angles, and a rebellious mood.' },
     'futuristic': { name: 'Futuristic', modifier: ' in a futuristic, cyberpunk style with neon lights, a dark, rain-slicked city environment, and high-tech fashion elements.' },
     'romantic': { name: 'Romantic', modifier: ' in a romantic, ethereal style with soft, dreamy lighting, pastel colors, and a whimsical, fairytale-like atmosphere.' },
-    'pop-art': { name: 'Pop Art', modifier: ' in a vibrant, pop-art style with bold, saturated colors, graphic patterns, and a playful, energetic feel.' },
 };
 
 // --- START: Detailed Styling Options ---
@@ -280,8 +350,13 @@ const App: React.FC = () => {
     const [outfitCategory, setOutfitCategory] = useState<ClosetCategory | null>(null);
 
     // Phase 1 State: Personalized Mannequin
-    const [personalMannequin, setPersonalMannequin] = useState<UploadedFile | null>(null);
+    const [personalMannequins, setPersonalMannequins] = useState<{ front: UploadedFile | null; back: UploadedFile | null }>({ front: null, back: null });
     const [isGeneratingMannequin, setIsGeneratingMannequin] = useState<boolean>(false);
+
+
+    // Phase 2 State: 3D Viewer
+    const [processedGarmentFor3D, setProcessedGarmentFor3D] = useState<string | null>(null);
+    const [isProcessingFor3D, setIsProcessingFor3D] = useState<boolean>(false);
 
     // Phase 2 State: Custom prompts for editor
     const [customFullBodyPrompt, setCustomFullBodyPrompt] = useState(fullBodyPrompts.front.ultra);
@@ -368,9 +443,9 @@ const App: React.FC = () => {
             if (savedMeasurements) {
                 setModelMeasurements(JSON.parse(savedMeasurements));
             }
-            const savedMannequin = localStorage.getItem('personalMannequin');
-            if (savedMannequin) {
-                setPersonalMannequin(JSON.parse(savedMannequin));
+            const savedMannequins = localStorage.getItem('personalMannequins');
+            if (savedMannequins) {
+                setPersonalMannequins(JSON.parse(savedMannequins));
             }
         } catch (error) {
             console.error("Failed to load data from localStorage:", error);
@@ -439,15 +514,15 @@ const App: React.FC = () => {
     useEffect(() => {
         if (!isAppLoaded) return;
         try {
-            if (personalMannequin) {
-                localStorage.setItem('personalMannequin', JSON.stringify(personalMannequin));
+            if (personalMannequins.front || personalMannequins.back) {
+                localStorage.setItem('personalMannequins', JSON.stringify(personalMannequins));
             } else {
-                localStorage.removeItem('personalMannequin');
+                localStorage.removeItem('personalMannequins');
             }
         } catch (error) {
-            console.error("Failed to save personal mannequin to localStorage:", error);
+            console.error("Failed to save personal mannequins to localStorage:", error);
         }
-    }, [personalMannequin, isAppLoaded]);
+    }, [personalMannequins, isAppLoaded]);
     
     const handleAddAccessorySlot = () => {
         if (accessoryImages.length < 3) {
@@ -718,10 +793,26 @@ const App: React.FC = () => {
             case GenerationTypeEnum.FULL_BODY:
             case GenerationTypeEnum.URBAN:
             case GenerationTypeEnum.RURAL:
+            case GenerationTypeEnum.MANGA_PAGE:
+            case GenerationTypeEnum.COMIC_COVER:
+            case GenerationTypeEnum.VINTAGE_COMIC:
+            case GenerationTypeEnum.NOIR_COMIC:
+            case GenerationTypeEnum.BD_COMIC:
+            case GenerationTypeEnum.ANIME_CHARACTER:
+            case GenerationTypeEnum.POP_ART:
+            case GenerationTypeEnum.FASHION_SKETCH:
+                return !!modelImage && !!outfitImage;
             case GenerationTypeEnum.POSE_VINTED_FRONT:
+                 if (modelFidelity === 'inspired') {
+                    return !!personalMannequins.front && !!outfitImage;
+                }
                 return !!modelImage && !!outfitImage;
             case GenerationTypeEnum.FULL_BODY_BACK:
+                return !!modelImage && !!backOutfitImage;
             case GenerationTypeEnum.POSE_VINTED_BACK:
+                if (modelFidelity === 'inspired') {
+                    return !!personalMannequins.back && !!backOutfitImage;
+                }
                 return !!modelImage && !!backOutfitImage;
             case GenerationTypeEnum.DETAIL:
                 return !!outfitImage || !!backOutfitImage;
@@ -730,11 +821,11 @@ const App: React.FC = () => {
             case GenerationTypeEnum.SILHOUETTE_TRY_ON:
                 return !!modelImage && !!outfitImage && !!garmentLengthCm;
             case GenerationTypeEnum.PERSONALIZED_TRY_ON:
-                return !!personalMannequin && !!outfitImage;
+                return !!personalMannequins.front && !!outfitImage;
             default:
                 return false;
         }
-    }, [modelImage, outfitImage, backOutfitImage, accessoryImages, garmentLengthCm, personalMannequin]);
+    }, [modelImage, outfitImage, backOutfitImage, accessoryImages, garmentLengthCm, personalMannequins, modelFidelity]);
     
     const buildFullBodyPrompt = useCallback((basePrompt: string, isBackView: boolean) => {
         const characteristicsInstruction = getModelCharacteristics();
@@ -802,44 +893,83 @@ const App: React.FC = () => {
         setError(null);
         try {
             const characteristics = getModelCharacteristics();
-            const prompt = `TECHNICAL MANNEQUIN GENERATION FOR VIRTUAL TRY-ON:
-    Generate a high-quality, photorealistic, anonymous fashion mannequin. This mannequin will be used as a base for a virtual try-on, so anatomical and proportional accuracy are critical.
+            const aspectRatioInstruction = `The aspect ratio must be ${aspectRatio}.`;
 
-    **Mannequin Specification:**
-    - **Pose:** The mannequin must be in a STRICTLY neutral, symmetrical, forward-facing museum pose. The arms should be straight down at the sides, not touching the body. The feet should be together.
-    - **CRUCIAL:** Absolutely no rotation, tilting, or leaning of the head, shoulders, or hips. The figure must be perfectly vertical and centered.
-    - **Appearance:** The mannequin must be headless (cropped smoothly at the neck). It should have a smooth, matte grey finish, avoiding any reflections or highlights that could interfere with the overlay.
+            const basePrompt = `TECHNICAL MANNEQUIN GENERATION FOR VIRTUAL TRY-ON:
+Generate a high-quality, photorealistic, anonymous fashion mannequin. This mannequin will be used as a base for a virtual try-on, so anatomical and proportional accuracy are critical.
 
-    **Anatomy & Proportions:**
-    - The mannequin's form and silhouette MUST be based on these exact proportions: ${characteristics}.
-    - The goal is a realistic but clearly artificial figure suitable for a precise virtual try-on.
+**CRUCIAL:** Absolutely no rotation, tilting, or leaning of the head, shoulders, or hips. The figure must be perfectly vertical and centered.
+- **Appearance:** The mannequin must be headless (cropped smoothly at the neck). It should have a smooth, matte grey finish, avoiding any reflections or highlights that could interfere with the overlay.
 
-    **Environment & Lighting:**
-    - **CRUCIAL:** The lighting must be perfectly flat, even, shadowless studio lighting, as if from a ring flash or a completely diffuse light source. There should be NO directional shadows on the body or on the background.
-    - The background must be a seamless, clean, minimalist, solid light grey color (#f0f0f0).
+**Anatomy & Proportions:**
+- The mannequin's form and silhouette MUST be based on these exact proportions: ${characteristics}.
+- The goal is a realistic but clearly artificial figure suitable for a precise virtual try-on.
 
-    **Output Format:**
-    - The final image must be a full-body shot, ensuring the feet are visible at the bottom of the frame. Any cropping will disrupt the scaling calculations.
-    - The aspect ratio must be ${aspectRatio}.
-    `;
-            const mannequinSrc = await generateImage(prompt, []); // text-to-image
+**Environment & Lighting:**
+- **CRUCIAL:** The lighting must be perfectly flat, even, shadowless studio lighting, as if from a ring flash or a completely diffuse light source. There should be NO directional shadows on the body or on the background.
+- The background must be a seamless, clean, minimalist, solid light grey color (#f0f0f0).
+
+**Output Format:**
+- The final image must be a full-body shot, ensuring the feet are visible at the bottom of the frame. Any cropping will disrupt the scaling calculations.
+- ${aspectRatioInstruction}
+`;
+
+            const frontPrompt = `
+**Pose:** The mannequin must be in a STRICTLY neutral, symmetrical, forward-facing museum pose. The arms should be straight down at the sides, not touching the body. The feet should be together.
+${basePrompt}
+`;
             
-            const mimeType = mannequinSrc.match(/data:(.*);base64,/)?.[1] ?? 'image/png';
-            const base64 = mannequinSrc.split(',')[1];
+            const backPrompt = `
+**Pose:** The mannequin must be in a STRICTLY neutral, symmetrical, BACK-facing museum pose (facing directly away from the camera). The arms should be straight down at the sides, not touching the body. The feet should be together.
+**CRITICAL - NO HEAD:** The mannequin must be headless, cropped at the neck, matching the front view. DO NOT include the back of the head.
+${basePrompt}
+`;
+            
+            const [frontSrc, backSrc] = await Promise.all([
+                generateImage(frontPrompt, []), // No input images needed
+                generateImage(backPrompt, [])
+            ]);
 
-            const mannequinFile: UploadedFile = {
-                file: new File([], 'personal-mannequin.png', { type: mimeType }),
-                preview: mannequinSrc,
-                base64: base64,
-                mimeType: mimeType
+            const createFileObject = (src: string, name: string): UploadedFile => {
+                const mimeType = src.match(/data:(.*);base64,/)?.[1] ?? 'image/png';
+                const base64 = src.split(',')[1];
+                return {
+                    file: new File([], name, { type: mimeType }),
+                    preview: src,
+                    base64: base64,
+                    mimeType: mimeType
+                };
             };
             
-            setPersonalMannequin(mannequinFile);
+            setPersonalMannequins({
+                front: createFileObject(frontSrc, 'personal-mannequin-front.png'),
+                back: createFileObject(backSrc, 'personal-mannequin-back.png')
+            });
 
         } catch (err) {
-            handleApiError(err, 'Failed to generate personal mannequin.');
+            handleApiError(err, 'Failed to generate personal mannequin views.');
         } finally {
             setIsGeneratingMannequin(false);
+        }
+    };
+
+    const handleProcessFor3D = async () => {
+        if (!outfitImage) {
+            setError('Por favor, sube una prenda para el visor 3D.');
+            return;
+        }
+        setIsProcessingFor3D(true);
+        setError(null);
+        setProcessedGarmentFor3D(null);
+        try {
+            const prompt = "Isolate the main garment in this image from its background. Return the result as a high-quality PNG with a transparent background.";
+            const imageInput = { base64: outfitImage.base64, mimeType: outfitImage.mimeType };
+            const processedSrc = await processImage(prompt, [imageInput]);
+            setProcessedGarmentFor3D(processedSrc);
+        } catch (err) {
+            handleApiError(err, 'Failed to process garment for 3D viewer.');
+        } finally {
+            setIsProcessingFor3D(false);
         }
     };
 
@@ -864,16 +994,32 @@ const App: React.FC = () => {
                 case GenerationTypeEnum.FULL_BODY:
                 case GenerationTypeEnum.URBAN:
                 case GenerationTypeEnum.RURAL:
+                case GenerationTypeEnum.MANGA_PAGE:
+                case GenerationTypeEnum.COMIC_COVER:
+                case GenerationTypeEnum.VINTAGE_COMIC:
+                case GenerationTypeEnum.NOIR_COMIC:
+                case GenerationTypeEnum.BD_COMIC:
+                case GenerationTypeEnum.ANIME_CHARACTER:
+                case GenerationTypeEnum.POP_ART:
+                case GenerationTypeEnum.FASHION_SKETCH:
                     sourceImagesForAPI = [modelImage!, outfitImage!, ...validAccessories];
                     break;
                 case GenerationTypeEnum.POSE_VINTED_FRONT:
-                    sourceImagesForAPI = [modelImage!, outfitImage!];
+                    if (modelFidelity === 'inspired' && personalMannequins.front) {
+                        sourceImagesForAPI = [personalMannequins.front, outfitImage!];
+                    } else {
+                        sourceImagesForAPI = [modelImage!, outfitImage!];
+                    }
                     break;
                 case GenerationTypeEnum.FULL_BODY_BACK:
                     sourceImagesForAPI = [modelImage!, backOutfitImage!, ...validAccessories];
                     break;
                 case GenerationTypeEnum.POSE_VINTED_BACK:
-                    sourceImagesForAPI = [modelImage!, backOutfitImage!];
+                     if (modelFidelity === 'inspired' && personalMannequins.back) {
+                        sourceImagesForAPI = [personalMannequins.back, backOutfitImage!];
+                    } else {
+                        sourceImagesForAPI = [modelImage!, backOutfitImage!];
+                    }
                     break;
                 case GenerationTypeEnum.DETAIL:
                     sourceImagesForAPI = [outfitImage ?? backOutfitImage!];
@@ -883,7 +1029,7 @@ const App: React.FC = () => {
                     break;
                 case GenerationTypeEnum.PERSONALIZED_TRY_ON:
                     // These are guarded by getIsGenerationPossible
-                    sourceImagesForAPI = [personalMannequin!, outfitImage!];
+                    sourceImagesForAPI = [personalMannequins.front!, outfitImage!];
                     break;
             }
         }
@@ -986,7 +1132,7 @@ ${finalStylingInstructions}
     }, [
         modelImage, outfitImage, backOutfitImage, accessoryImages, aspectRatio, modelMeasurements, modelFidelity, 
         garmentLength, garmentFit, fixedAccessory, belt, garmentLengthCm, getIsGenerationPossible, outfitCategory,
-        finalFullBodyPrompt, finalFullBodyBackPrompt, buildFullBodyPrompt, personalMannequin
+        finalFullBodyPrompt, finalFullBodyBackPrompt, buildFullBodyPrompt, personalMannequins
     ]);
 
 
@@ -1112,7 +1258,8 @@ The output MUST be only the modified image.`;
 * Sugiere 2-3 colores adicionales que combinarían bien con la prenda principal, tanto para otras piezas de ropa como para accesorios.`;
 
             const images = [modelImage, outfitImage, ...validAccessories];
-            const result = await getStyleAnalysis(prompt, images);
+            // Updated to use the new system instruction
+            const result = await getStyleAnalysis(prompt, images, ASSISTANT_SYSTEM_INSTRUCTION);
             setStyleAnalysisResult(result);
             // setIsVintedModalOpen(true); This is already open, analysis is triggered from within
 
@@ -1211,7 +1358,8 @@ The output MUST be only the modified image.`;
         try {
             const imageInput = { base64: analysisImage.base64, mimeType: analysisImage.mimeType };
             // Re-using getStyleAnalysis as it's a generic text/image prompt handler
-            const result = await getStyleAnalysis(analysisQuestion, [imageInput]);
+            // Also passed the system instruction here
+            const result = await getStyleAnalysis(analysisQuestion, [imageInput], ASSISTANT_SYSTEM_INSTRUCTION);
             setAnalysisResult(result);
         } catch (err) {
             console.error("Failed to analyze photo:", err);
@@ -1227,7 +1375,7 @@ The output MUST be only the modified image.`;
             setError("Cannot modify an image that hasn't been generated yet.");
             return;
         }
-    
+        
         // 1. Add user message to history and set loading state
         setGeneratedImages(prev => prev.map(img => {
             if (img.id === id) {
@@ -1236,7 +1384,7 @@ The output MUST be only the modified image.`;
             }
             return img;
         }));
-    
+        
         try {
             // 2. Construct the prompt
             const refinementPrompt = `You are a helpful photo editing assistant. The user wants to modify the provided image.
@@ -1478,29 +1626,29 @@ Return only the newly generated image reflecting this change.`;
                         <div className="mt-8 border-t border-zinc-700 pt-8">
                             <h3 className="text-xl font-semibold text-center mb-2 text-zinc-200">✨ Maniquí Personalizado 2.5D</h3>
                             <p className="text-center text-sm text-zinc-400 max-w-2xl mx-auto mb-6">
-                                Genera un maniquí con tus medidas exactas. Se usará para la "Prueba en Maniquí Personalizado", ofreciendo un resultado mucho más preciso y seguro que el "Virtual Try-On" estándar.
+                                Genera un maniquí frontal y trasero con tus medidas. Se usará para "Prueba en Maniquí" y las poses de Vinted para máxima consistencia.
                             </p>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center max-w-2xl mx-auto">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center max-w-4xl mx-auto">
                                 <div className="md:col-span-1">
+                                    <h4 className="text-center text-sm font-semibold mb-2 text-zinc-300">Vista Frontal</h4>
                                     <div className="aspect-w-3 aspect-h-4 bg-zinc-900/50 rounded-lg flex items-center justify-center text-zinc-500 overflow-hidden border border-zinc-700">
                                         {isGeneratingMannequin ? (
                                             <div className="flex flex-col items-center justify-center h-full">
                                                 <SpinnerIcon className="w-8 h-8 text-indigo-400" />
                                                 <p className="text-xs mt-2">Creando...</p>
                                             </div>
-                                        ) : personalMannequin ? (
-                                            <img src={personalMannequin.preview} alt="Personalized Mannequin" className="object-contain w-full h-full" />
+                                        ) : personalMannequins.front ? (
+                                            <img src={personalMannequins.front.preview} alt="Personalized Mannequin Front" className="object-contain w-full h-full" />
                                         ) : (
                                             <div className="text-center p-4">
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                                                <span className="text-sm mt-2 block">Tu maniquí aparecerá aquí</span>
                                             </div>
                                         )}
                                     </div>
                                 </div>
-                                <div className="md:col-span-2 text-center">
-                                    <p className="text-zinc-400 mb-4">
-                                        Introduce tus medidas en la sección "Model Details" y pulsa el botón para generar tu maniquí. Este paso solo es necesario una vez (se guardará para futuras sesiones).
+                                <div className="md:col-span-1 text-center">
+                                    <p className="text-zinc-400 mb-4 text-sm">
+                                        Introduce tus medidas en "Model Details" y pulsa para generar ambas vistas. Se guardarán para futuras sesiones.
                                     </p>
                                     <button
                                         onClick={handleGenerateMannequin}
@@ -1510,13 +1658,71 @@ Return only the newly generated image reflecting this change.`;
                                         {isGeneratingMannequin ? (
                                             <span className="flex items-center justify-center">
                                                 <SpinnerIcon className="w-5 h-5 mr-2" />
-                                                Generando Maniquí...
+                                                Generando Vistas...
                                             </span>
-                                        ) : personalMannequin ? 'Volver a Generar Maniquí' : 'Generar mi Maniquí'}
+                                        ) : (personalMannequins.front || personalMannequins.back) ? 'Volver a Generar Vistas' : 'Generar Vistas del Maniquí'}
                                     </button>
+                                </div>
+                                <div className="md:col-span-1">
+                                    <h4 className="text-center text-sm font-semibold mb-2 text-zinc-300">Vista Trasera</h4>
+                                    <div className="aspect-w-3 aspect-h-4 bg-zinc-900/50 rounded-lg flex items-center justify-center text-zinc-500 overflow-hidden border border-zinc-700">
+                                        {isGeneratingMannequin ? (
+                                            <div className="flex flex-col items-center justify-center h-full">
+                                                <SpinnerIcon className="w-8 h-8 text-indigo-400" />
+                                                <p className="text-xs mt-2">Creando...</p>
+                                            </div>
+                                        ) : personalMannequins.back ? (
+                                            <img src={personalMannequins.back.preview} alt="Personalized Mannequin Back" className="object-contain w-full h-full" />
+                                        ) : (
+                                             <div className="text-center p-4">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
+
+
+                        {/* NEW SECTION: 3D VIEWER */}
+                        <div className="mt-8 border-t border-zinc-700 pt-8">
+                            <h3 className="text-xl font-semibold text-center mb-2 text-zinc-200">🚀 Fase 2: Probador Virtual 3D Interactivo</h3>
+                            <p className="text-center text-sm text-zinc-400 max-w-2xl mx-auto mb-6">
+                                Visualiza tu prenda en un maniquí 3D. Rota y haz zoom para ver todos los ángulos. Primero, procesa la prenda para prepararla para el visor 3D.
+                            </p>
+                            <div className="max-w-4xl mx-auto">
+                                <div className="text-center mb-6">
+                                    <button
+                                        onClick={handleProcessFor3D}
+                                        disabled={isProcessingFor3D || isLoading || !outfitImage}
+                                        className="w-full max-w-xs px-6 py-3 bg-teal-600 text-white font-semibold rounded-lg shadow-lg hover:bg-teal-500 disabled:bg-zinc-600 disabled:cursor-not-allowed transition-colors duration-200"
+                                    >
+                                        {isProcessingFor3D ? (
+                                            <span className="flex items-center justify-center">
+                                                <SpinnerIcon className="w-5 h-5 mr-2" />
+                                                Procesando para 3D...
+                                            </span>
+                                        ) : 'Procesar Prenda para 3D'}
+                                    </button>
+                                </div>
+                                
+                                {isProcessingFor3D && (
+                                    <div className="flex flex-col items-center justify-center h-96 bg-zinc-900/50 rounded-lg">
+                                        <SpinnerIcon className="w-12 h-12 text-indigo-400" />
+                                        <p className="mt-4 text-zinc-300">Preparando el visor 3D...</p>
+                                    </div>
+                                )}
+                                {processedGarmentFor3D && (
+                                    <div className="aspect-w-3 aspect-h-4 lg:aspect-w-16 lg:aspect-h-9 bg-zinc-900/50 rounded-lg overflow-hidden border border-zinc-700">
+                                        <ThreeDViewer
+                                            garmentSrc={processedGarmentFor3D}
+                                            mannequinUrl={MANNEQUIN_3D_MODEL_URL}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
 
                          <div className="mt-8 border-t border-zinc-700 pt-8">
                             <h3 className="text-lg font-semibold text-center mb-4 text-zinc-200">Detalles de la Prenda (para Maniquí)</h3>
