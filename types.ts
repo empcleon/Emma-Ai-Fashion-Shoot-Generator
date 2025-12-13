@@ -1,5 +1,4 @@
 
-
 import type { ResultadoClasificacion } from './types/largos';
 
 export interface UploadedFile {
@@ -21,6 +20,18 @@ export enum GenerationTypeEnum {
     SILHOUETTE_TRY_ON = 'SILHOUETTE_TRY_ON',
     POSE_VINTED_FRONT = 'POSE_VINTED_FRONT',
     POSE_VINTED_BACK = 'POSE_VINTED_BACK',
+    VINTED_MIRROR = 'VINTED_MIRROR',
+    VINTED_MANNEQUIN = 'VINTED_MANNEQUIN',
+    VINTED_HOME = 'VINTED_HOME',
+    
+    // New Editorial Modes
+    ROOFTOP_EDITORIAL = 'ROOFTOP_EDITORIAL',
+    CAFE_EDITORIAL = 'CAFE_EDITORIAL',
+    NIGHT_CITY_EDITORIAL = 'NIGHT_CITY_EDITORIAL',
+    
+    // Testing Mode
+    PLAYGROUND = 'PLAYGROUND',
+    
     PERSONALIZED_TRY_ON = 'PERSONALIZED_TRY_ON',
     MANGA_PAGE = 'MANGA_PAGE',
     COMIC_COVER = 'COMIC_COVER',
@@ -30,6 +41,7 @@ export enum GenerationTypeEnum {
     ANIME_CHARACTER = 'ANIME_CHARACTER',
     POP_ART = 'POP_ART',
     FASHION_SKETCH = 'FASHION_SKETCH',
+    PRODUCT_ENHANCER = 'PRODUCT_ENHANCER',
 }
 
 export type GenerationType = GenerationTypeEnum;
@@ -141,6 +153,7 @@ export interface SugerenciaPrecio {
 }
 
 export interface AnalisisVisual {
+  tipoPrenda: string; // e.g., 'Vestido', 'Top', 'Jeans'
   estilo: 'floral-romantico' | 'elegante-noche' | 'casual-verano' | 'boho-hippie' | 'minimalista-urbano' | 'deportivo' | 'vintage-retro';
   confianza: number;
   keywords: string[];

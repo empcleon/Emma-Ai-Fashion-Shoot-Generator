@@ -1,3 +1,4 @@
+
 // lib/vintedTemplates.ts
 
 import type { MedidasPrenda, AnalisisMedidas, AnalisisVisual } from '../types';
@@ -13,8 +14,8 @@ interface PlantillaDescripcion {
 const PLANTILLAS_VESTIDOS: Record<string, PlantillaDescripcion> = {
   'floral-romantico': {
     estilo: 'Floral Romántico',
-    hooks: ['✨ ¡Vestido de ensueño!', '🌸 Perfecto para primavera/verano', '💕 Estampado floral precioso'],
-    destacados: ['Estampado floral femenino', 'Corte favorecedor', 'Tejido fluido y ligero'],
+    hooks: ['✨ ¡Look de ensueño!', '🌸 Perfecto para primavera/verano', '💕 Estampado y corte precioso'],
+    destacados: ['Estampado femenino', 'Corte favorecedor', 'Tejido fluido y ligero'],
     publico: 'Ideal para looks románticos y femeninos',
     ocasiones: ['Citas', 'Brunch', 'Bodas de día', 'Paseos'],
   },
@@ -71,11 +72,19 @@ export function generarDescripcionOptimizada(
 ): string {
   const plantilla = PLANTILLAS_VESTIDOS[analisisVisual.estilo] || PLANTILLAS_VESTIDOS['casual-verano'];
   const hook = plantilla.hooks[Math.floor(Math.random() * plantilla.hooks.length)];
+  const tipo = analisisVisual.tipoPrenda || 'Prenda';
 
   let desc = `${hook}\n\n`;
-  desc += `🏷️ ${medidas.marca} | Talla ${analisisMedidas.tallaEstimada} | ${estado}\n\n`;
+  desc += `🏷️ ${medidas.marca} | ${tipo} Talla ${analisisMedidas.tallaEstimada} | ${estado}\n\n`;
   desc += `💫 CARACTERÍSTICAS:\n`;
   plantilla.destacados.forEach(d => { desc += `• ${d}\n`; });
+  
+  if (analisisVisual.keywords && analisisVisual.keywords.length > 0) {
+      // Capitalize first letter of each keyword
+      const formattedKeywords = analisisVisual.keywords.map(k => k.charAt(0).toUpperCase() + k.slice(1));
+      desc += `• Detalles: ${formattedKeywords.join(', ')}\n`;
+  }
+
   if (analisisVisual.tejido !== 'otro') {
     desc += `• Tejido principal (aparente): ${analisisVisual.tejido}\n`;
   }
@@ -121,17 +130,25 @@ export function generarTituloOptimizado(
     medidas: MedidasPrenda,
     analisisMedidas: AnalisisMedidas
 ): string {
-    const tipoPrenda = "Vestido"; // Could be dynamic in the future
+    const tipoPrenda = analisisVisual.tipoPrenda || "Prenda";
     const marca = medidas.marca !== 'Sin marca' ? medidas.marca : '';
     const colorPrincipal = analisisVisual.colorPredominante || '';
     const estampado = (analisisVisual.estampado !== 'liso' && analisisVisual.estampado !== 'ninguno') ? analisisVisual.estampado : '';
     const largo = analisisMedidas.categoriaLargo?.info.nombre || '';
     const talla = `Talla ${analisisMedidas.tallaEstimada}`;
 
-    const parts = [tipoPrenda, largo, marca, estampado, colorPrincipal, talla].filter(Boolean);
+    // Combine distinct keywords into the title if space permits
+    let keywordsString = '';
+    if (analisisVisual.keywords && analisisVisual.keywords.length > 0) {
+        // Pick the top 1 or 2 keywords that aren't already in the other variables
+        const keywords = analisisVisual.keywords.slice(0, 2).join(' ');
+        if (keywords) keywordsString = keywords;
+    }
+
+    const parts = [tipoPrenda, largo, marca, estampado, colorPrincipal, keywordsString, talla].filter(Boolean);
     let title = parts.join(' ');
     
-    // Trim to a reasonable length for Vinted
+    // Trim to a reasonable length for Vinted (usually max 80 chars, but keeping it concise is better)
     if (title.length > 80) {
         title = title.substring(0, 80).trim() + '...';
     }
@@ -144,11 +161,18 @@ export function generarHashtags(
     analisisMedidas: AnalisisMedidas
 ): string {
     const clean = (s: string) => s.replace(/[\s/]/g, '').toLowerCase();
+    const tipo = clean(analisisVisual.tipoPrenda || 'vestido');
 
     const tags = new Set<string>();
     if (medidas.marca !== 'Sin marca') tags.add(`#${clean(medidas.marca)}`);
-    tags.add(`#vestido${clean(analisisMedidas.categoriaLargo?.info.nombre || '')}`);
+    
+    tags.add(`#${tipo}`);
+    if (analisisMedidas.categoriaLargo?.info.nombre) {
+        tags.add(`#${tipo}${clean(analisisMedidas.categoriaLargo.info.nombre)}`);
+    }
+    
     tags.add(`#talla${clean(analisisMedidas.tallaEstimada)}`);
+    
     if (analisisVisual.estampado !== 'liso' && analisisVisual.estampado !== 'ninguno') tags.add(`#estampado${clean(analisisVisual.estampado)}`);
     tags.add(`#${clean(analisisVisual.colorPredominante || '')}`);
     
@@ -156,8 +180,8 @@ export function generarHashtags(
     tags.add(`#${clean(plantilla.estilo)}`);
     
     if (analisisVisual.keywords && analisisVisual.keywords.length > 0) {
-        analisisVisual.keywords.slice(0, 2).forEach(kw => tags.add(`#${clean(kw)}`));
+        analisisVisual.keywords.slice(0, 3).forEach(kw => tags.add(`#${clean(kw)}`));
     }
 
-    return Array.from(tags).slice(0, 5).join(' ');
+    return Array.from(tags).slice(0, 8).join(' ');
 }

@@ -1,62 +1,31 @@
+
 // lib/prompts.ts
 
 export const fullBodyPrompts = {
   front: {
-    ultra: `ULTRA-REALISTIC E-COMMERCE FULL-BODY PHOTOGRAPH:
+    ultra: `ULTRA-REALISTIC E-COMMERCE PHOTOGRAPHY. STRICT IDENTITY PRESERVATION.
 
-**SKIN REALISM (MOST IMPORTANT):**
-- Natural human skin with VISIBLE PORES and realistic texture
-- Skin shows subtle color variations, natural undertones, and organic complexion
-- NO plastic appearance, NO mannequin look, NO CGI smooth skin, NO airbrushed effect
-- Natural skin highlights on forehead, nose, and cheekbones
-- Subtle imperfections that make the skin look authentically human
+**SUBJECT IDENTITY & BODY (CRITICAL PRIORITY):**
+- The model MUST BE the exact same person from Input Image 1.
+- RETAIN EXACT FACIAL FEATURES: Preserve the exact eyes, nose, lips, jawline, and bone structure of Image 1. Do NOT generate a generic fashion model face.
+- RETAIN BODY MEASUREMENTS: Keep the exact body shape, height (1.78m tall), curves, and proportions from Image 1. The body volume must match the reference subject perfectly.
+- Skin texture must be identical to the subject in Image 1 (moles, freckles, specific skin tone).
 
-**GARMENT FROM SECOND IMAGE:**
-- The model is wearing the garment shown in the second reference image
-- The garment is fitted naturally to her body with realistic fabric physics
-- Show natural draping, organic wrinkles at movement points (waist, elbows)
-- Fabric texture is clearly visible with accurate material properties
-- The garment is the central focus of the photograph
+**GARMENT INTEGRATION:**
+- The subject is wearing the garment from Input Image 2.
+- The garment is accurately fitted to the subject's specific body measurements (not a standard mannequin size).
+- Fabric texture, color, and drape from Image 2 are preserved and rendered realistically on the subject's body.
+- Realistic fabric tension across the chest, waist, and hips based on the subject's pose.
 
-**POSE & COMPOSITION:**
-- Full body shot from head to toe, model centered in frame
-- Natural, elegant standing pose suitable for showcasing the dress silhouette
-- Slight weight shift (contrapposto) for authentic human posture
-- Arms positioned naturally to display the dress fit and style
-- Confident but approachable expression, looking at camera
+**PHOTOGRAPHY & LIGHTING:**
+- Full-body studio shot, head to toe.
+- High-end e-commerce lighting: Soft, diffused, neutral daylight (5500K).
+- No harsh shadows on the face.
+- Background: Solid clean light grey (#f0f0f0).
+- 8k resolution, raw photo style, sharp focus on fabric details and face.
 
-**PHOTOGRAPHY SPECIFICATIONS:**
-- Shot with Canon 5D Mark IV, 85mm f/1.8 lens at f/2.8 aperture
-- Professional studio setup with large softbox main light positioned 45° camera left
-- Fill light: silver reflector camera right for gentle shadow fill
-- Background light: subtle separation from backdrop
-- Sharp focus on face and garment, shallow depth of field
-
-**ENVIRONMENT:**
-- Seamless, minimalist studio background
-- Solid light grey backdrop (#f0f0f0)
-- Clean, professional e-commerce aesthetic
-- No distracting elements
-
-**LIGHTING:**
-- Soft, diffused, professional studio lighting
-- Even illumination eliminating harsh shadows
-- Natural light falloff creating subtle depth
-- Highlights the dress texture and construction details
-- Color temperature: 5500K (neutral daylight)
-
-**IMAGE QUALITY:**
-- Indistinguishable from a real DSLR photograph
-- High resolution (8K quality), tack sharp detail
-- Realistic hair with individual strands visible
-- Authentic fabric texture with material-accurate weave/knit
-- Professional color grading: neutral, true-to-life
-- NO digital artifacts, NO over-smoothing, NO unnatural elements
-
-**FINAL CHECK:**
-This must look like a professional fashion photographer captured a REAL HUMAN WOMAN wearing a real dress in a real studio, NOT a computer-generated image.
-
---no plastic skin, mannequin, doll, 3D render, CGI, smooth skin, airbrushed, artificial, synthetic, video game graphics, cartoon, illustration, stiff pose, awkward hands, distorted anatomy, harsh lighting, overexposed, low quality, blurry`,
+**NEGATIVE PROMPT (Avoid):**
+- (generic model face, changing body weight, plastic skin, 3d render, cartoon, distorted face, different person, changing hair color, changing ethnicity).`,
     fast: `Fast, highly realistic, full-body e-commerce photo of a model wearing the garment from the second image. Clean, minimalist light-grey studio background with professional lighting. Photorealistic style, NOT CGI.`
   },
   back: {

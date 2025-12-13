@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import type { GenerationType, UploadedFile, GeneratedImage, ClosetItem, ModelMeasurements, AccessorySuggestion, ImageInput } from './types';
 import { GenerationTypeEnum, ClosetCategoryEnum, ClosetCategory } from './types';
@@ -22,10 +23,27 @@ import { ASSISTANT_SYSTEM_INSTRUCTION } from './lib/assistantSystemInstruction';
 
 
 const initialGeneratedImages: GeneratedImage[] = [
-     {
-        id: GenerationTypeEnum.MOOD_BOARD,
-        title: 'Creative Mood Board',
-        prompt: "Act as a creative director for a high-fashion photoshoot. Based on the two provided images (a model reference and a garment), create a visually stunning 3x3 mood board collage in a single image. Each of the 9 cells should represent a key aesthetic element for the shoot. The collage must include inspiration for: color palette, fabric textures, potential urban or rural locations, makeup looks, hair styling, photographic lighting style, and overall editorial mood. The final output must be a single, cohesive, and inspiring image that defines the creative direction.",
+    {
+        id: GenerationTypeEnum.PRODUCT_ENHANCER,
+        title: 'High-Fidelity Product Enhancer',
+        prompt: `PROFESSIONAL PRODUCT PHOTO ENHANCEMENT:
+
+Task: Improve the quality of the provided garment image to look like a high-end e-commerce product shot.
+
+STRICT RULES (DO NOT MODIFY THE GARMENT):
+- DO NOT change the shape, cut, or design of the garment.
+- DO NOT change the color, pattern, or print.
+- DO NOT change the logos or text on the garment.
+- PRESERVE all original details, stitching, and imperfections that define the item.
+
+ENHANCEMENTS TO APPLY:
+- Lighting: Apply soft, even studio lighting to remove harsh shadows and improve visibility.
+- Clarity: Sharpen the texture and fabric details (upscale quality).
+- Color Correction: Neutralize any color casts (like yellow indoor lighting) to show the true colors of the item.
+- Background: Isolate the item on a clean, pure white or very light grey background if the original background is messy.
+
+OUTPUT:
+A crisp, high-resolution, photorealistic image of the EXACT same garment, just photographed better.`,
         src: null,
         status: 'pending',
         chatHistory: []
@@ -33,7 +51,68 @@ const initialGeneratedImages: GeneratedImage[] = [
     {
         id: GenerationTypeEnum.VIRTUAL_TRY_ON,
         title: 'Virtual Try-On',
-        prompt: "Generate a highly realistic, full-body photograph of a model wearing the garment from the second image, fitted perfectly. Ensure the generated model’s face is a perfect and photorealistic replication of the face in the first reference image, capturing all facial features, expression, and skin tone. The setting is a professional, brightly lit photo studio with a clean, minimalist background. The image should be photorealistic and suitable for a general audience.",
+        prompt: `ULTRA-REALISTIC E-COMMERCE FULL-BODY PHOTOGRAPH
+
+Use TWO image inputs:
+- First image: reference of the real woman / model (this is the client).
+- Second image: reference of the garment to be worn.
+
+IDENTITY LOCK (PRIORITY – DO NOT CHANGE THE MODEL):
+- The model MUST BE the exact same person from Input Image 1.
+- Preserve her exact face, facial features, skin tone, hair color, hairline and overall appearance.
+- Preserve her body type: height around 1.78m, tall, curvy, same proportions as in the first image.
+- Do NOT invent a new model. Do NOT change age, ethnicity, body weight, or body proportions.
+- If the AI is unsure, always stay as close as possible to the first image in face and body.
+
+GARMENT FROM SECOND IMAGE:
+- The model is wearing ONLY the garment shown in the SECOND input image.
+- Keep the original design, color, length and style of the garment from the second image.
+- Fit the garment naturally to the body from the first image, with realistic fabric behavior.
+- Show natural draping and organic wrinkles at movement points (waist, elbows, hips).
+- Fabric texture must be clearly visible with accurate material properties.
+- The garment is the main focus of the image.
+
+SKIN & REALISM:
+- Skin should look like real human skin with natural texture and visible pores.
+- Show subtle color variations, natural undertones and a believable complexion matching the first image.
+- Include gentle highlights on forehead, nose and cheekbones, and small imperfections that make the skin feel authentic.
+- The image must clearly look like a professional studio photograph, NOT a 3D render, cartoon or plastic mannequin.
+
+POSE & COMPOSITION:
+- Full body shot from head to toe, model centered in frame.
+- Natural, elegant standing pose suitable for showcasing the garment’s silhouette.
+- Slight weight shift for an authentic human posture.
+- Arms positioned naturally to display the fit and style of the garment (do not hide important garment details).
+- Calm, confident, approachable expression, looking towards the camera.
+
+STUDIO BACKGROUND & ENVIRONMENT:
+- Seamless, minimalist studio background.
+- Solid light grey backdrop (#f0f0f0).
+- Clean, professional e-commerce aesthetic with no distracting elements.
+
+LIGHTING:
+- Soft, diffused, professional studio lighting.
+- Even illumination that avoids harsh shadows on face and body.
+- Natural light falloff creating subtle depth around the model.
+- Lighting should highlight the garment’s texture, seams and construction details.
+- Overall color temperature around 5500K (neutral daylight).
+
+IMAGE QUALITY:
+- High resolution, sharp and clean.
+- Realistic hair rendering with visible individual strands, matching hairstyle and color from the first image.
+- Authentic fabric texture with a believable weave/knit.
+- Neutral, true-to-life color grading suitable for a product catalog.
+- Avoid over-smoothing, heavy airbrushing or unnatural digital artifacts.
+
+NEGATIVE INSTRUCTIONS (WHAT TO AVOID):
+- Do NOT change the model’s face shape, eyes, nose, mouth, or hairstyle compared to the first image.
+- Do NOT change the model’s body proportions (keep her height and curves).
+- Do NOT make the model look like a different person, 3D avatar, doll or cartoon.
+- Do NOT alter the garment design from the second image (no fantasy changes to color, length, neckline, etc.).
+
+SAFETY & CONTEXT:
+- The scene is safe and neutral; the subject appears healthy and comfortable.
+- The image is appropriate for a general audience and clearly focused on showing the garment for online shopping.`,
         src: null,
         status: 'pending',
         chatHistory: []
@@ -71,6 +150,120 @@ const initialGeneratedImages: GeneratedImage[] = [
         chatHistory: []
     },
     {
+        id: GenerationTypeEnum.PLAYGROUND,
+        title: 'Prompt Playground (Test Lab)',
+        prompt: `Use this space to test new ideas.
+[UPLOAD IMAGE 1 (YOU)]
+[UPLOAD IMAGE 2 (DRESS)]
+
+TASK: Experimental generation.
+
+INSTRUCTIONS:
+- Write your custom prompt here.
+- The system will inject model identity and basic garment fitting instructions automatically if you use the 'modelBasedTypes' logic, otherwise describe everything manually.`,
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
+    {
+        id: GenerationTypeEnum.VINTED_HOME,
+        title: 'Vinted Home (Anti-Ban)',
+        prompt: `AUTHENTIC DAILY OUTFIT PHOTO (USER GENERATED STYLE):
+Create a realistic fashion photograph of a person wearing the garment from the second image. It must look like a high-quality "Outfit of the Day" photo taken with a smartphone.
+
+Context:
+- Style: Casual lifestyle, authentic social media content.
+- Pose: Standing naturally in a tidy living area.
+- Vibe: Casual, authentic, approachable.
+
+Garment:
+- The person wears the garment from the second image.
+- Fabric looks natural, with normal gravity and wrinkles. NOT perfectly ironed or stiff.
+
+Location & Lighting:
+- Setting: A tidy, bright living room or hallway with blurred details like a plant or door frame in the background.
+- Background: A real home environment, NOT a studio.
+- Lighting: Soft natural window light coming from one side.
+- Shadows: Realistic cast shadows on the floor/wall.
+
+Quality & Texture:
+- Image aesthetics: High-end smartphone camera (iPhone/Pixel style).
+- Skin: Natural texture.
+- AVOID: Studio backdrops, pure white background #FFFFFF, professional retouching, or "catalog" poses.`,
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
+    {
+        id: GenerationTypeEnum.VINTED_MIRROR,
+        title: 'Vinted: Mirror Selfie (Face Hidden)',
+        prompt: `AMATEUR HOME FASHION PHOTO (MIRROR SELFIE STYLE):
+Create a realistic, "at-home" fashion photograph of a person wearing the garment from the second image. It must look like a photo taken with a smartphone for a second-hand app like Vinted.
+
+Context:
+- Style: User-generated content, authentic resale listing.
+- Pose: Standing naturally in front of a full-length mirror taking a selfie.
+- **CRITICAL - FACE HIDDEN:** The model is holding the smartphone directly in front of her face to take the picture, covering the face (or the majority of it) to maintain anonymity. This is a classic "faceless seller" aesthetic.
+- Vibe: Casual, "outfit of the day", authentic.
+
+Garment:
+- The person wears the garment from the second image.
+- Fabric looks natural, with normal gravity and wrinkles. NOT perfectly ironed or stiff.
+
+Location & Lighting (CRITICAL FOR ANTI-BAN):
+- Setting: A tidy home interior (bedroom, hallway, or living room) with visible domestic details like baseboards, door frames, or wooden flooring.
+- Background: NOT a studio. It must show depth of a real room.
+- Lighting: Natural window light coming from one side.
+- Shadows: MUST have cast shadows on the wall or floor. No floating models. No perfect softbox lighting.
+
+Quality & Texture:
+- Image aesthetics: High-end smartphone camera (iPhone/Pixel style). Sharp but natural contrast.
+- Skin: Natural texture.
+- AVOID: Studio backdrops, pure white background #FFFFFF, professional retouching, or "catalog" poses.
+
+Safety:
+- The setting is a standard living area or hallway. Safe and appropriate for general audiences.
+- The subject is anonymous (face obscured by phone).`,
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
+    {
+        id: GenerationTypeEnum.VINTED_MANNEQUIN,
+        title: 'Vinted: Maniquí Costura (Anti-Ban)',
+        prompt: `AMATEUR VINTED LISTING - SEWING MANNEQUIN SETUP
+
+Create a realistic, "at-home" listing photo of the provided garment displayed on a sewing mannequin.
+
+MANNEQUIN SPECIFICATIONS (EMMA™ STYLE):
+- Type: Classic sewing torso (tailor's dummy), armless.
+- Material: Beige or Ecru raw fabric/canvas with visible vertical seams.
+- Base: Simple light wood or thin metal stand (Ikea style).
+- Height: Realistic human height, not miniature.
+- Condition: Looks used/real, not a pristine store display.
+
+GARMENT PRESENTATION:
+- The sewing mannequin is wearing the garment from the input image.
+- Fit: Natural drape, gravity affects the fabric, wrinkles at the waist/hem. The garment should look "pinned" or naturally resting, NOT stiff or floating.
+- Texture: Real fabric texture with mobile photo quality.
+
+ENVIRONMENT (CRITICAL FOR ANTI-BAN):
+- Setting: A corner of a real room against a white wall that is slightly imperfect (not pure #FFFFFF).
+- Props: A minimal everyday object on the floor edge (e.g., a small cardboard box, a plant pot, or folded clothes) to establish scale and reality.
+- Floor: Simple wooden parquet or terrazzo.
+- Lighting: Natural daylight coming from a side window. Casts soft, imperfect shadows on the wall. NO perfect studio lighting.
+
+PHOTOGRAPHY AESTHETICS:
+- Camera: High-end smartphone camera quality.
+- Imperfections: Slight lens distortion, soft digital noise, slight blur on the edges.
+- Focus: Good focus on the dress, but not razor-sharp HDR.
+- Color: Natural, slightly desaturated or warm. NO vivid filters or "premium" editing.
+- Vibe: Authentic second-hand listing from a stylish seller.`,
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
+    {
         id: GenerationTypeEnum.DETAIL,
         title: 'Garment Detail',
         prompt: "Create a detailed, macro-style product shot focusing on the garment in the provided image. The image should highlight the fabric's texture, weave, and stitching quality. The garment can be displayed on a generic, out-of-focus mannequin or as a flat lay to ensure the entire focus is on the material craftsmanship. Use professional, clean lighting.",
@@ -88,41 +281,182 @@ const initialGeneratedImages: GeneratedImage[] = [
     },
     {
         id: GenerationTypeEnum.URBAN,
-        title: 'Urban Editorial',
-        prompt: `HIGH-FASHION URBAN EDITORIAL SHOT:
-Generate a cinematic, ultra-realistic, full-body editorial photograph of a fashion model in a compelling urban setting.
+        title: 'City Lifestyle',
+        prompt: `[UPLOAD IMAGE 1 (YOU)]
+[UPLOAD IMAGE 2 (DRESS)]
 
-**Creative Concept & Mood:**
-- The mood is cinematic and candid, capturing a fleeting, authentic moment. It should feel like a still from an art-house film.
-- The aesthetic is effortlessly cool and high-fashion, not overly posed.
+TASK: High-Fidelity Virtual Try-On in an urban street-style editorial.
 
-**Model & Garment:**
-- The model, inspired by the reference photo, is wearing the garment from the second image. The garment is the star, shown in motion or in a natural pose.
-- Pose should be dynamic and interact with the environment (e.g., walking confidently across a street, leaning against a textured wall, looking off-camera).
+This is a PHOTO EDIT of Image 1, not a new character.
 
-**Location & Environment:**
-- The setting is a rich, atmospheric urban environment. Choose from options like: a rain-slicked city street at dusk with neon reflections; a classic European cobblestone alley; a minimalist concrete plaza with long shadows; or a gritty, textured industrial area.
-- The background should have depth and character but not distract from the model and garment. A shallow depth of field is appropriate.
+IDENTITY LOCK (VERY IMPORTANT):
+- The woman must be the same person as in Image 1.
+- Keep the exact face: same eyes, nose, lips, jawline, and skin tone.
+- Keep the same body shape and proportions: tall (around 1.78m), curvy, not slimmed down.
+- Do NOT generate a different model or change her ethnicity, age, or facial structure.
 
-**Photography & Lighting Style:**
-- **CRUCIAL:** The image must look like it was shot on a high-end mirrorless camera (e.g., Sony A7R IV with a 50mm f/1.2 G Master lens).
-- Utilize a mix of ambient city lights (streetlights, neon signs) and a subtle off-camera flash or strobe to create a cinematic, high-contrast look that sculpts the model. The lighting should feel motivated and natural to the scene.
+GARMENT TRANSFER:
+- Replace the outfit in Image 1 with the dress from Image 2.
+- Preserve the exact fabric, color, and style of the garment in Image 2.
+- Fit the dress naturally to her real body with realistic fabric tension and folds.
 
-**Image Quality & Realism:**
-- The final image must be indistinguishable from a real professional photograph.
-- Ensure hyper-realistic textures: the weave of the garment's fabric, the grit of a brick wall, the reflection on a puddle, natural skin texture.
-- The image must be sharp, with beautiful color grading (e.g., moody blues and warm oranges, or a desaturated, cinematic palette).
+URBAN EDITORIAL SCENE:
+- Full-body shot in a city environment.
+- She is standing on a sidewalk or near a pedestrian crosswalk, with blurred buildings and street elements in the background.
+- Street-style / fashion editorial vibe.
+- Natural, confident pose, weight slightly shifted to one leg.
+- Expression: calm, self-assured, similar mood to Image 1.
 
-**Audience & Safety:**
-- The image must be appropriate for a general audience and suitable for a high-fashion magazine editorial.`,
+LIGHTING & STYLE:
+- Keep the facial lighting consistent with Image 1 so the face looks real.
+- Add soft urban daylight (slightly overcast or diffused sunlight).
+- Photorealistic image, high resolution, visible hair strands and fabric texture.
+- No over-beautification or plastic skin.
+
+OUTPUT GOAL:
+It should look like the real person from Image 1 is doing a street-style fashion shoot in the city, wearing the dress from Image 2.
+Identity must be preserved.`,
         src: null,
         status: 'pending',
         chatHistory: []
     },
     {
         id: GenerationTypeEnum.RURAL,
-        title: 'Rural Editorial',
-        prompt: "Create a serene, high-fashion editorial photograph in a picturesque rural landscape. A model is wearing the garment from the second image. The mood should be ethereal and romantic, with soft, natural lighting. The image must be appropriate for a general audience.",
+        title: 'Weekend Getaway',
+        prompt: `[UPLOAD IMAGE 1 (YOU)]
+[UPLOAD IMAGE 2 (DRESS)]
+
+TASK: High-Fidelity Virtual Try-On in an outdoor editorial scene.
+
+You are NOT creating a new person. You are EDITING the existing person in Image 1.
+
+CRITICAL IDENTITY CONSTRAINTS (MUST OBEY):
+1. FACE LOCK:
+   - Preserve the EXACT same face as in Image 1.
+   - Same eyes, nose, lips, jawline, skin tone, and facial proportions.
+   - Do NOT beautify, slim, or change the facial structure.
+   - Do NOT generate a generic fashion model face.
+
+2. BODY LOCK:
+   - Keep the exact body shape, height and proportions of the woman in Image 1.
+   - She is tall (around 1.78m) and curvy. Do NOT thin her down or change her body type.
+   - The body volume, curves, and limb proportions must match Image 1.
+
+GARMENT TRANSFER:
+- Replace the original outfit in Image 1 with the dress from Image 2.
+- Keep the exact color, material, and design of the dress from Image 2.
+- Adapt the fit to her real body: natural stretching, realistic draping, slight wrinkles where the body bends.
+
+EDITORIAL PARK SCENE:
+- Keep the same person and approximate pose from Image 1.
+- Place her in a soft, editorial park setting:
+  - Green grass, soft-focus trees in the background.
+  - Late afternoon light, warm and flattering (golden hour feeling).
+- Full-body shot, head-to-toe, suitable for a fashion editorial.
+- Natural, confident expression, looking either at the camera or slightly off-camera.
+
+LIGHTING & STYLE:
+- Respect the lighting direction and shadows from Image 1 as much as possible to keep the face realistic.
+- Add gentle outdoor lighting consistent with a park at golden hour.
+- Photorealistic photography style, not 3D, not illustration.
+- Visible skin texture (pores, small imperfections), no plastic or over-smoothed skin.
+
+OUTPUT GOAL:
+It must look like the SAME WOMAN from Image 1 is standing in a park, wearing the dress from Image 2.
+Do NOT change her identity. Only change the clothes and the background.`,
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
+    {
+        id: GenerationTypeEnum.ROOFTOP_EDITORIAL,
+        title: 'Rooftop Sunset',
+        prompt: `[UPLOAD IMAGE 1 (YOU)]
+[UPLOAD IMAGE 2 (DRESS)]
+
+TASK: High-Fidelity Virtual Try-On on a rooftop at sunset.
+
+Use the person from Image 1 and only change her outfit and environment.
+
+IDENTITY:
+- Preserve the exact face and body from Image 1.
+- Do not alter her facial structure, age, or body proportions.
+- She remains tall and curvy, as in the reference.
+
+GARMENT:
+- Replace her outfit with the dress from Image 2.
+- Accurate fabric, color and texture from Image 2.
+- Realistic fit and drape over her body.
+
+ROOFTOP EDITORIAL SCENE:
+- Full-body shot on a rooftop with a soft sunset sky.
+- Hints of a city skyline in the blurred background.
+- Warm, golden hour lighting wrapping around her.
+- Natural pose, one leg slightly bent, relaxed arms.
+- Fashion editorial mood, but still realistic.
+
+IMAGE STYLE:
+- Photorealistic, high resolution.
+- No cartoon, no 3D render.
+- Realistic skin, hair, and fabric textures.`,
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
+    {
+        id: GenerationTypeEnum.CAFE_EDITORIAL,
+        title: 'Café Terrace',
+        prompt: `[UPLOAD IMAGE 1 (YOU)]
+[UPLOAD IMAGE 2 (DRESS)]
+
+TASK: Edit Image 1 so the subject is wearing the dress from Image 2, in a café terrace editorial.
+
+IDENTITY:
+- Same woman as Image 1.
+- Same face, same body, no slimming, no facial redesign.
+
+GARMENT:
+- Apply the dress from Image 2 to her body.
+- Keep exact color, cut, and material.
+
+CAFÉ EDITORIAL SCENE:
+- She is standing or leaning lightly against a café terrace table or railing.
+- Background: blurred tables, chairs, maybe plants or a street.
+- Soft daytime light, gentle shadows.
+- Full or 3/4 body shot, clearly showing the garment.
+- Relaxed, chic expression, suitable for a lifestyle fashion magazine.
+
+STYLE:
+- Photorealistic edit, not a new generated person.`,
+        src: null,
+        status: 'pending',
+        chatHistory: []
+    },
+    {
+        id: GenerationTypeEnum.NIGHT_CITY_EDITORIAL,
+        title: 'Night City Neon',
+        prompt: `[UPLOAD IMAGE 1 (YOU)]
+[UPLOAD IMAGE 2 (DRESS)]
+
+TASK: Virtual Try-On in a night city editorial with neon lights.
+
+IDENTITY:
+- Same person as in Image 1, face and body unchanged.
+- Do not beautify into a generic model.
+
+GARMENT:
+- Dress from Image 2 applied to her body.
+- Accurate material, shine and color.
+
+SCENE:
+- Full-body shot on a city street at night.
+- Neon lights and storefronts softly blurred in the background.
+- Subtle reflections of neon colors on the fabric.
+- Confident, powerful pose (bad bitch energy), but still natural.
+
+STYLE:
+- Photorealistic night photography.
+- Visible fabric texture and skin detail.`,
         src: null,
         status: 'pending',
         chatHistory: []
@@ -191,22 +525,6 @@ Generate a cinematic, ultra-realistic, full-body editorial photograph of a fashi
         status: 'pending',
         chatHistory: []
     },
-     {
-        id: GenerationTypeEnum.SILHOUETTE_TRY_ON,
-        title: 'Prueba en Maniquí (Largo Exacto)',
-        prompt: "Genera un maniquí a medida con IA y superpone la prenda con su largo 100% exacto. Este proceso híbrido combina la IA para el realismo del cuerpo y un escalado matemático para la precisión de la prenda.",
-        src: null,
-        status: 'pending',
-        chatHistory: []
-    },
-     {
-        id: GenerationTypeEnum.PERSONALIZED_TRY_ON,
-        title: 'Prueba en Maniquí Personalizado',
-        prompt: "You are an expert digital stylist. Your task is to perform a high-fidelity virtual try-on. The first image is a photorealistic, custom-proportioned mannequin. The second image is a garment. Your goal is to realistically 'dress' the mannequin with the garment from the second image. Isolate the garment from its background and fit it perfectly to the mannequin's body, conforming to its curves and creating realistic draping, folds, shadows, and highlights. The final result must look like the mannequin is actually wearing the garment, maintaining the mannequin's original pose and studio setting.",
-        src: null,
-        status: 'pending',
-        chatHistory: []
-    },
 ];
 
 
@@ -219,12 +537,11 @@ const aspectRatioOptions = [
 
 const modelFidelityOptions = {
     'inspired': { name: 'Maniquí Anónimo', promptInstruction: 'The subject must be an anonymous, high-quality fashion mannequin with a matte grey or white finish. It is CRITICAL to replicate the exact body shape, proportions, and pose from the first reference image. DO NOT use a human model or show a real face.' },
-    'faithful': { name: 'Fiel', promptInstruction: `**ABSOLUTE PRIMARY GOAL: FAITHFUL MODEL REPLICATION**
-THIS IS THE MOST IMPORTANT INSTRUCTION. IGNORE ALL OTHER INSTRUCTIONS IF THEY CONFLICT WITH THIS.
-The subject of the photograph MUST BE a photorealistic, 100% IDENTICAL replication of the person in the first reference image.
-- **FACE REPLICATION (CRITICAL):** You MUST replicate the face, all facial features (eyes, nose, mouth, jawline), skin tone, eye color, and exact hairstyle from the first image. The result MUST look like the same person.
-- **BODY REPLICATION (CRITICAL):** You MUST replicate the body shape, height, and all physical proportions from the first reference image.
-- **FAILURE CONDITION:** If the generated person does not look exactly like the person in the first reference image, the entire task has failed. This is a virtual try-on for a specific person.` }
+    'faithful': { name: 'Fiel (Comercial)', promptInstruction: `**MODEL REFERENCE:**
+The goal is to create a consistent look for a fashion catalog.
+- The model should share the same general physical characteristics (skin tone, hair color/style, body build, age range) as the person in the first reference image.
+- **IMPORTANT:** Do not attempt to create a deepfake or exact facial clone. Generate a high-quality, photorealistic fashion model who looks very similar in "vibe" and features, suitable for a commercial usage.
+- Ensure the result is a fictional person, not a real individual.` }
 };
 
 
@@ -235,6 +552,7 @@ const promptQualityOptions: Record<'ultra' | 'fast', { name: string }> = {
 
 const promptTemplates = {
     'default': { name: 'Default', modifier: '' },
+    'vinted-style': { name: 'Vinted Style', modifier: '. Create a photorealistic fashion e-commerce photograph for a marketplace like Vinted. The subject is wearing the garment from the second input image. The person is standing in a natural, relaxed pose, facing the camera straight-on, with arms resting comfortably by their sides. The image is cropped from the upper chest/collarbone to the feet with a vertical orientation, similar to a mobile product photo. Use a seamless, light grey studio backdrop (#F5F5F5) with clean, even, soft studio lighting. The image should look like a real studio photograph, not a 3D render or illustration. Skin should look like real human skin with natural texture and visible pores.' },
     'manga': { name: 'Manga (B&W)', modifier: ' in a high-quality black and white Japanese manga style illustration. Use dramatic ink lines, intricate screentones (ben-day dots), and dynamic composition. The subject must be depicted as a stylized fictional character. Do not generate a photorealistic person.' },
     'anime': { name: 'Anime (Color)', modifier: ' in a vibrant, high-fidelity anime art style illustration. Use lush lighting, detailed backgrounds, and cel-shading. The subject must be depicted as a stylized anime character. Do not generate a photorealistic person.' },
     'comic': { name: 'Western Comic', modifier: ' in a modern Western comic book style illustration. Use bold black outlines, vibrant saturated colors, and dramatic heavy shadows. The subject must be depicted as a fictional comic book character. Do not generate a photorealistic person.' },
@@ -364,6 +682,20 @@ const App: React.FC = () => {
     const [customVirtualTryOnPrompt, setCustomVirtualTryOnPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.VIRTUAL_TRY_ON)?.prompt ?? '');
     const [customVintedFrontPrompt, setCustomVintedFrontPrompt] = useState(vintedMasterFront);
     const [customVintedBackPrompt, setCustomVintedBackPrompt] = useState(vintedMasterBack);
+    
+    const [customUrbanPrompt, setCustomUrbanPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.URBAN)?.prompt ?? '');
+    const [customRuralPrompt, setCustomRuralPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.RURAL)?.prompt ?? '');
+    
+    // New Editorial Prompts State
+    const [customRooftopPrompt, setCustomRooftopPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.ROOFTOP_EDITORIAL)?.prompt ?? '');
+    const [customCafePrompt, setCustomCafePrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.CAFE_EDITORIAL)?.prompt ?? '');
+    const [customNightPrompt, setCustomNightPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.NIGHT_CITY_EDITORIAL)?.prompt ?? '');
+
+    // Vinted & Playground Prompts State
+    const [customVintedHomePrompt, setCustomVintedHomePrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.VINTED_HOME)?.prompt ?? '');
+    const [customVintedMirrorPrompt, setCustomVintedMirrorPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.VINTED_MIRROR)?.prompt ?? '');
+    const [customPlaygroundPrompt, setCustomPlaygroundPrompt] = useState('');
+
     const [finalFullBodyPrompt, setFinalFullBodyPrompt] = useState('');
     const [finalFullBodyBackPrompt, setFinalFullBodyBackPrompt] = useState('');
     const [activeVintedTemplate, setActiveVintedTemplate] = useState('generic');
@@ -722,6 +1054,40 @@ const App: React.FC = () => {
     useEffect(() => {
         handlePromptChange(GenerationTypeEnum.POSE_VINTED_BACK, customVintedBackPrompt);
     }, [customVintedBackPrompt]);
+    
+    useEffect(() => {
+        handlePromptChange(GenerationTypeEnum.URBAN, customUrbanPrompt);
+    }, [customUrbanPrompt]);
+
+    useEffect(() => {
+        handlePromptChange(GenerationTypeEnum.RURAL, customRuralPrompt);
+    }, [customRuralPrompt]);
+
+    // New Editorial Prompts Effects
+    useEffect(() => {
+        handlePromptChange(GenerationTypeEnum.ROOFTOP_EDITORIAL, customRooftopPrompt);
+    }, [customRooftopPrompt]);
+
+    useEffect(() => {
+        handlePromptChange(GenerationTypeEnum.CAFE_EDITORIAL, customCafePrompt);
+    }, [customCafePrompt]);
+
+    useEffect(() => {
+        handlePromptChange(GenerationTypeEnum.NIGHT_CITY_EDITORIAL, customNightPrompt);
+    }, [customNightPrompt]);
+
+    // Vinted & Playground Prompts Effects
+    useEffect(() => {
+        handlePromptChange(GenerationTypeEnum.VINTED_HOME, customVintedHomePrompt);
+    }, [customVintedHomePrompt]);
+
+    useEffect(() => {
+        handlePromptChange(GenerationTypeEnum.VINTED_MIRROR, customVintedMirrorPrompt);
+    }, [customVintedMirrorPrompt]);
+
+    useEffect(() => {
+        handlePromptChange(GenerationTypeEnum.PLAYGROUND, customPlaygroundPrompt);
+    }, [customPlaygroundPrompt]);
 
     // Effect to update editors when quality template changes
     useEffect(() => {
@@ -788,11 +1154,16 @@ const App: React.FC = () => {
     const validAccessories = accessoryImages.filter((img): img is UploadedFile => !!img);
     const getIsGenerationPossible = useCallback((id: GenerationType) => {
         switch (id) {
-            case GenerationTypeEnum.MOOD_BOARD:
             case GenerationTypeEnum.VIRTUAL_TRY_ON:
             case GenerationTypeEnum.FULL_BODY:
             case GenerationTypeEnum.URBAN:
             case GenerationTypeEnum.RURAL:
+            case GenerationTypeEnum.ROOFTOP_EDITORIAL:
+            case GenerationTypeEnum.CAFE_EDITORIAL:
+            case GenerationTypeEnum.NIGHT_CITY_EDITORIAL:
+            case GenerationTypeEnum.VINTED_MIRROR:
+            case GenerationTypeEnum.VINTED_HOME:
+            case GenerationTypeEnum.PLAYGROUND:
             case GenerationTypeEnum.MANGA_PAGE:
             case GenerationTypeEnum.COMIC_COVER:
             case GenerationTypeEnum.VINTAGE_COMIC:
@@ -814,18 +1185,16 @@ const App: React.FC = () => {
                     return !!personalMannequins.back && !!backOutfitImage;
                 }
                 return !!modelImage && !!backOutfitImage;
+            case GenerationTypeEnum.VINTED_MANNEQUIN:
             case GenerationTypeEnum.DETAIL:
+            case GenerationTypeEnum.PRODUCT_ENHANCER:
                 return !!outfitImage || !!backOutfitImage;
             case GenerationTypeEnum.ACCESSORY_DETAIL:
                 return validAccessories.length > 0;
-            case GenerationTypeEnum.SILHOUETTE_TRY_ON:
-                return !!modelImage && !!outfitImage && !!garmentLengthCm;
-            case GenerationTypeEnum.PERSONALIZED_TRY_ON:
-                return !!personalMannequins.front && !!outfitImage;
             default:
                 return false;
         }
-    }, [modelImage, outfitImage, backOutfitImage, accessoryImages, garmentLengthCm, personalMannequins, modelFidelity]);
+    }, [modelImage, outfitImage, backOutfitImage, accessoryImages, personalMannequins, modelFidelity]);
     
     const buildFullBodyPrompt = useCallback((basePrompt: string, isBackView: boolean) => {
         const characteristicsInstruction = getModelCharacteristics();
@@ -989,11 +1358,16 @@ ${basePrompt}
             }
         } else {
              switch (imageInfo.id) {
-                case GenerationTypeEnum.MOOD_BOARD:
                 case GenerationTypeEnum.VIRTUAL_TRY_ON:
                 case GenerationTypeEnum.FULL_BODY:
                 case GenerationTypeEnum.URBAN:
                 case GenerationTypeEnum.RURAL:
+                case GenerationTypeEnum.ROOFTOP_EDITORIAL:
+                case GenerationTypeEnum.CAFE_EDITORIAL:
+                case GenerationTypeEnum.NIGHT_CITY_EDITORIAL:
+                case GenerationTypeEnum.VINTED_MIRROR:
+                case GenerationTypeEnum.VINTED_HOME:
+                case GenerationTypeEnum.PLAYGROUND:
                 case GenerationTypeEnum.MANGA_PAGE:
                 case GenerationTypeEnum.COMIC_COVER:
                 case GenerationTypeEnum.VINTAGE_COMIC:
@@ -1021,15 +1395,13 @@ ${basePrompt}
                         sourceImagesForAPI = [modelImage!, backOutfitImage!];
                     }
                     break;
+                case GenerationTypeEnum.VINTED_MANNEQUIN:
                 case GenerationTypeEnum.DETAIL:
+                case GenerationTypeEnum.PRODUCT_ENHANCER:
                     sourceImagesForAPI = [outfitImage ?? backOutfitImage!];
                     break;
                 case GenerationTypeEnum.ACCESSORY_DETAIL:
                      sourceImagesForAPI = [validAccessories[0]];
-                    break;
-                case GenerationTypeEnum.PERSONALIZED_TRY_ON:
-                    // These are guarded by getIsGenerationPossible
-                    sourceImagesForAPI = [personalMannequins.front!, outfitImage!];
                     break;
             }
         }
@@ -1039,24 +1411,6 @@ ${basePrompt}
             setError(missingPrerequisiteMessage);
             setGeneratedImages(prev => prev.map(img => img.id === imageInfo.id ? { ...img, status: 'error', error: missingPrerequisiteMessage } : img));
             return;
-        }
-
-        // Handle mathematical silhouette generation (no AI)
-        if (imageInfo.id === GenerationTypeEnum.SILHOUETTE_TRY_ON) {
-            try {
-                const resultSrc = await generarFotoConSilueta(
-                    modelMeasurements,
-                    outfitImage!.preview,
-                    garmentLengthCm
-                );
-                setGeneratedImages(prev => prev.map(img => img.id === imageInfo.id ? { ...img, src: resultSrc, status: 'done' } : img));
-            } catch (err) {
-                 const errorMessage = err instanceof Error ? err.message : `Failed to generate silhouette for ${imageInfo.title}`;
-                console.error(`Failed to generate silhouette for ${imageInfo.title}:`, err);
-                handleApiError(err, errorMessage);
-                setGeneratedImages(prev => prev.map(img => img.id === imageInfo.id ? { ...img, status: 'error', error: errorMessage } : img));
-            }
-            return; // Exit after handling this special case
         }
 
         try {
@@ -1069,7 +1423,19 @@ ${basePrompt}
             } else {
                  let basePrompt = imageInfo.prompt;
                 // Fallback for other types that might need model/styling info
-                const modelBasedTypes = [GenerationTypeEnum.VIRTUAL_TRY_ON, GenerationTypeEnum.URBAN, GenerationTypeEnum.RURAL, GenerationTypeEnum.POSE_VINTED_FRONT, GenerationTypeEnum.POSE_VINTED_BACK, GenerationTypeEnum.PERSONALIZED_TRY_ON];
+                const modelBasedTypes = [
+                    GenerationTypeEnum.VIRTUAL_TRY_ON, 
+                    GenerationTypeEnum.URBAN, 
+                    GenerationTypeEnum.RURAL,
+                    GenerationTypeEnum.ROOFTOP_EDITORIAL,
+                    GenerationTypeEnum.CAFE_EDITORIAL,
+                    GenerationTypeEnum.NIGHT_CITY_EDITORIAL,
+                    GenerationTypeEnum.POSE_VINTED_FRONT, 
+                    GenerationTypeEnum.POSE_VINTED_BACK,
+                    GenerationTypeEnum.VINTED_MIRROR,
+                    GenerationTypeEnum.VINTED_HOME,
+                    GenerationTypeEnum.PLAYGROUND
+                ];
                 if(modelBasedTypes.includes(imageInfo.id)) {
                     const characteristicsInstruction = getModelCharacteristics();
                     const fidelityInstruction = modelFidelityOptions[modelFidelity as keyof typeof modelFidelityOptions].promptInstruction;
@@ -1094,15 +1460,12 @@ ${basePrompt}
                             .join('\n');
                     }
 
-                    // For PERSONALIZED_TRY_ON, we don't need fidelity instructions, as it uses the mannequin.
-                    const finalFidelityInstruction = imageInfo.id !== GenerationTypeEnum.PERSONALIZED_TRY_ON ? fidelityInstruction : '';
-
                     prompt = `
 **MAIN TASK:**
 ${basePrompt}
 
 **MODEL & POSE INSTRUCTIONS:**
-${finalFidelityInstruction}
+${fidelityInstruction}
 ${characteristicsInstruction}
 
 **STYLING & GARMENT MODIFICATIONS:**
@@ -1444,6 +1807,16 @@ Return only the newly generated image reflecting this change.`;
     const virtualTryOnPromptValidation = validatePrompt(customVirtualTryOnPrompt);
     const vintedFrontPromptValidation = validatePrompt(customVintedFrontPrompt);
     const vintedBackPromptValidation = validatePrompt(customVintedBackPrompt);
+    
+    const urbanPromptValidation = validatePrompt(customUrbanPrompt);
+    const ruralPromptValidation = validatePrompt(customRuralPrompt);
+    const rooftopPromptValidation = validatePrompt(customRooftopPrompt);
+    const cafePromptValidation = validatePrompt(customCafePrompt);
+    const nightPromptValidation = validatePrompt(customNightPrompt);
+    
+    const vintedHomePromptValidation = validatePrompt(customVintedHomePrompt);
+    const vintedMirrorPromptValidation = validatePrompt(customVintedMirrorPrompt);
+    const playgroundPromptValidation = validatePrompt(customPlaygroundPrompt);
 
     const isFullBodyGenerated = !!generatedImages.find(img => img.id === GenerationTypeEnum.FULL_BODY)?.src;
 
@@ -1622,68 +1995,6 @@ Return only the newly generated image reflecting this change.`;
                              </div>
                         </div>
 
-                        {/* NEW SECTION: PERSONALIZED MANNEQUIN */}
-                        <div className="mt-8 border-t border-zinc-700 pt-8">
-                            <h3 className="text-xl font-semibold text-center mb-2 text-zinc-200">✨ Maniquí Personalizado 2.5D</h3>
-                            <p className="text-center text-sm text-zinc-400 max-w-2xl mx-auto mb-6">
-                                Genera un maniquí frontal y trasero con tus medidas. Se usará para "Prueba en Maniquí" y las poses de Vinted para máxima consistencia.
-                            </p>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center max-w-4xl mx-auto">
-                                <div className="md:col-span-1">
-                                    <h4 className="text-center text-sm font-semibold mb-2 text-zinc-300">Vista Frontal</h4>
-                                    <div className="aspect-w-3 aspect-h-4 bg-zinc-900/50 rounded-lg flex items-center justify-center text-zinc-500 overflow-hidden border border-zinc-700">
-                                        {isGeneratingMannequin ? (
-                                            <div className="flex flex-col items-center justify-center h-full">
-                                                <SpinnerIcon className="w-8 h-8 text-indigo-400" />
-                                                <p className="text-xs mt-2">Creando...</p>
-                                            </div>
-                                        ) : personalMannequins.front ? (
-                                            <img src={personalMannequins.front.preview} alt="Personalized Mannequin Front" className="object-contain w-full h-full" />
-                                        ) : (
-                                            <div className="text-center p-4">
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="md:col-span-1 text-center">
-                                    <p className="text-zinc-400 mb-4 text-sm">
-                                        Introduce tus medidas en "Model Details" y pulsa para generar ambas vistas. Se guardarán para futuras sesiones.
-                                    </p>
-                                    <button
-                                        onClick={handleGenerateMannequin}
-                                        disabled={isGeneratingMannequin || isLoading}
-                                        className="w-full max-w-xs px-6 py-3 bg-teal-600 text-white font-semibold rounded-lg shadow-lg hover:bg-teal-500 disabled:bg-zinc-600 disabled:cursor-not-allowed transition-colors duration-200"
-                                    >
-                                        {isGeneratingMannequin ? (
-                                            <span className="flex items-center justify-center">
-                                                <SpinnerIcon className="w-5 h-5 mr-2" />
-                                                Generando Vistas...
-                                            </span>
-                                        ) : (personalMannequins.front || personalMannequins.back) ? 'Volver a Generar Vistas' : 'Generar Vistas del Maniquí'}
-                                    </button>
-                                </div>
-                                <div className="md:col-span-1">
-                                    <h4 className="text-center text-sm font-semibold mb-2 text-zinc-300">Vista Trasera</h4>
-                                    <div className="aspect-w-3 aspect-h-4 bg-zinc-900/50 rounded-lg flex items-center justify-center text-zinc-500 overflow-hidden border border-zinc-700">
-                                        {isGeneratingMannequin ? (
-                                            <div className="flex flex-col items-center justify-center h-full">
-                                                <SpinnerIcon className="w-8 h-8 text-indigo-400" />
-                                                <p className="text-xs mt-2">Creando...</p>
-                                            </div>
-                                        ) : personalMannequins.back ? (
-                                            <img src={personalMannequins.back.preview} alt="Personalized Mannequin Back" className="object-contain w-full h-full" />
-                                        ) : (
-                                             <div className="text-center p-4">
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-
                         {/* NEW SECTION: 3D VIEWER */}
                         <div className="mt-8 border-t border-zinc-700 pt-8">
                             <h3 className="text-xl font-semibold text-center mb-2 text-zinc-200">🚀 Fase 2: Probador Virtual 3D Interactivo</h3>
@@ -1720,23 +2031,6 @@ Return only the newly generated image reflecting this change.`;
                                         />
                                     </div>
                                 )}
-                            </div>
-                        </div>
-
-
-                         <div className="mt-8 border-t border-zinc-700 pt-8">
-                            <h3 className="text-lg font-semibold text-center mb-4 text-zinc-200">Detalles de la Prenda (para Maniquí)</h3>
-                            <div className="max-w-xs mx-auto">
-                                <label htmlFor="garmentLengthCm" className="block text-sm font-medium text-zinc-300 mb-2">Largo de la Prenda (cm)</label>
-                                <input 
-                                    type="number" 
-                                    name="garmentLengthCm" 
-                                    id="garmentLengthCm" 
-                                    value={garmentLengthCm} 
-                                    onChange={(e) => setGarmentLengthCm(e.target.value)} 
-                                    placeholder="Ej: 95" 
-                                    className="form-input" 
-                                />
                             </div>
                         </div>
                         
@@ -1934,6 +2228,76 @@ Return only the newly generated image reflecting this change.`;
                                             value={customVintedBackPrompt}
                                             onChange={setCustomVintedBackPrompt}
                                             validation={vintedBackPromptValidation}
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <div className="md:col-span-2 space-y-4 p-4 bg-zinc-900/50 rounded-lg border border-zinc-700">
+                                    <h4 className="text-md font-medium text-zinc-300 mb-3 text-center">Vinted Specialized (Anti-Ban) & Playground</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
+                                        <PromptEditor
+                                            id="vinted-home-prompt"
+                                            label="Vinted Home (Anti-Ban) - Base"
+                                            value={customVintedHomePrompt}
+                                            onChange={setCustomVintedHomePrompt}
+                                            validation={vintedHomePromptValidation}
+                                        />
+                                        <PromptEditor
+                                            id="vinted-mirror-prompt"
+                                            label="Vinted Mirror Selfie - Base"
+                                            value={customVintedMirrorPrompt}
+                                            onChange={setCustomVintedMirrorPrompt}
+                                            validation={vintedMirrorPromptValidation}
+                                        />
+                                        <div className="md:col-span-2">
+                                            <PromptEditor
+                                                id="playground-prompt"
+                                                label="🧪 Prompt Playground / Test Lab"
+                                                value={customPlaygroundPrompt}
+                                                onChange={setCustomPlaygroundPrompt}
+                                                validation={playgroundPromptValidation}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="md:col-span-2 space-y-4 p-4 bg-zinc-900/50 rounded-lg border border-zinc-700">
+                                    <h4 className="text-md font-medium text-zinc-300 mb-3 text-center">Editorial Prompts</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
+                                        <PromptEditor
+                                            id="urban-prompt"
+                                            label="City Lifestyle - Base"
+                                            value={customUrbanPrompt}
+                                            onChange={setCustomUrbanPrompt}
+                                            validation={urbanPromptValidation}
+                                        />
+                                        <PromptEditor
+                                            id="rural-prompt"
+                                            label="Weekend Getaway - Base"
+                                            value={customRuralPrompt}
+                                            onChange={setCustomRuralPrompt}
+                                            validation={ruralPromptValidation}
+                                        />
+                                        <PromptEditor
+                                            id="rooftop-prompt"
+                                            label="Rooftop Sunset - Base"
+                                            value={customRooftopPrompt}
+                                            onChange={setCustomRooftopPrompt}
+                                            validation={rooftopPromptValidation}
+                                        />
+                                        <PromptEditor
+                                            id="cafe-prompt"
+                                            label="Café Terrace - Base"
+                                            value={customCafePrompt}
+                                            onChange={setCustomCafePrompt}
+                                            validation={cafePromptValidation}
+                                        />
+                                        <PromptEditor
+                                            id="night-prompt"
+                                            label="Night City Neon - Base"
+                                            value={customNightPrompt}
+                                            onChange={setCustomNightPrompt}
+                                            validation={nightPromptValidation}
                                         />
                                     </div>
                                 </div>

@@ -8,6 +8,7 @@ import {
     getVisualAnalysisForVinted,
     generateAnonymizedImage, 
     generateInfographic,
+    generateMeasurementProof,
     processImage
 } from '../services/geminiService';
 import { analizarMedidasPrenda } from '../utils/garmentUtils';
@@ -93,6 +94,7 @@ const SellerAssistantTab: React.FC<SellerAssistantTabProps> = ({ modelMeasuremen
     const [editorialBackground, setEditorialBackground] = useState<string>('urban');
     
     const [infographicImage, setInfographicImage] = useState<string | null>(null);
+    const [measurementProofImage, setMeasurementProofImage] = useState<string | null>(null);
     const [detailImage, setDetailImage] = useState<UploadedFile | null>(null);
     const [labelImage, setLabelImage] = useState<UploadedFile | null>(null);
     
@@ -180,6 +182,22 @@ After dressing the mannequin, seamlessly place them into the following scene: '$
             setError(`Error al generar la infografía: ${message}`);
         } finally {
             setProcessingState('infographic', false);
+        }
+    };
+
+    const handleGenerateMeasurementProof = async () => {
+        if (!flatLayImage) return;
+        setError(null);
+        setProcessingState('measurementProof', true);
+        try {
+            const imageInput: ImageInput = { base64: flatLayImage.base64, mimeType: flatLayImage.mimeType };
+            const resultSrc = await generateMeasurementProof(imageInput, medidasPrenda);
+            setMeasurementProofImage(resultSrc);
+        } catch (err) {
+             const message = err instanceof Error ? err.message : 'Ocurrió un error desconocido.';
+             setError(`Error al generar cinta métrica visual: ${message}`);
+        } finally {
+             setProcessingState('measurementProof', false);
         }
     };
 
@@ -378,9 +396,13 @@ After dressing the mannequin, seamlessly place them into the following scene: '$
 
                              {flatLayImage && (
                                 <div className="p-4 bg-zinc-900/50 rounded-lg space-y-3">
+                                     <button onClick={handleGenerateMeasurementProof} className="btn-primary w-full bg-cyan-600 hover:bg-cyan-500" disabled={isProcessing.measurementProof}>
+                                        {isProcessing.measurementProof ? <SpinnerIcon className="w-5 h-5 inline mr-2"/> : '📏'}
+                                        Generar Cinta Métrica Visual
+                                    </button>
                                     <button onClick={handleGenerateInfographic} className="btn-primary w-full" disabled={isProcessing.infographic || !analisis}>
                                         {isProcessing.infographic ? <SpinnerIcon className="w-5 h-5 inline mr-2"/> : '🎨'}
-                                        Generar Infografía con IA
+                                        Generar Infografía Resumen
                                     </button>
                                      <button onClick={handleAnalyzeAndGenerateListing} className="btn-primary w-full" disabled={isProcessing.listing || !analisis}>
                                         {isProcessing.listing ? <SpinnerIcon className="w-5 h-5 inline mr-2"/> : '✨'}
@@ -400,9 +422,25 @@ After dressing the mannequin, seamlessly place them into the following scene: '$
                             )}
                         </div>
                         <div className='space-y-4'>
-                             {isProcessing.infographic ? <div className="flex items-center justify-center h-full"><SpinnerIcon className="w-8 h-8"/></div> : 
-                            (infographicImage ? <img src={infographicImage} alt="Infographic" className="rounded-lg object-contain w-full" /> : <div className="aspect-w-1 aspect-h-1 bg-zinc-900 rounded-lg flex items-center justify-center text-zinc-500">Vista Previa Infografía</div>)
-                            }
+                            {/* Visual Proof Display */}
+                             <div className="bg-zinc-900/50 rounded-lg border border-zinc-700 overflow-hidden">
+                                <p className="text-xs text-center text-zinc-400 py-2">Prueba de Medidas (Visual)</p>
+                                <div className="aspect-w-1 aspect-h-1 flex items-center justify-center">
+                                    {isProcessing.measurementProof ? <SpinnerIcon className="w-8 h-8 text-cyan-500"/> : 
+                                    (measurementProofImage ? <img src={measurementProofImage} alt="Measurement Proof" className="object-contain w-full h-full" /> : <span className="text-zinc-600 text-xs">Sin imagen generada</span>)
+                                    }
+                                </div>
+                            </div>
+
+                            {/* Infographic Display */}
+                             <div className="bg-zinc-900/50 rounded-lg border border-zinc-700 overflow-hidden">
+                                <p className="text-xs text-center text-zinc-400 py-2">Infografía Resumen</p>
+                                <div className="aspect-w-1 aspect-h-1 flex items-center justify-center">
+                                     {isProcessing.infographic ? <SpinnerIcon className="w-8 h-8"/> : 
+                                    (infographicImage ? <img src={infographicImage} alt="Infographic" className="object-contain w-full h-full" /> : <span className="text-zinc-600 text-xs">Sin imagen generada</span>)
+                                    }
+                                </div>
+                            </div>
                         </div>
                         {listingText && (
                              <div className="md:col-span-2 space-y-4 p-4 bg-zinc-900/50 rounded-lg">
@@ -434,9 +472,10 @@ After dressing the mannequin, seamlessly place them into the following scene: '$
                     { name: '1_Modelo_Studio.jpg', src: studioLookImage },
                     { name: '2_Modelo_Editorial.jpg', src: editorialLookImage },
                     { name: '3_Infografia.jpg', src: infographicImage },
-                    { name: '4_Prenda_Plano.jpg', src: flatLayImage?.preview },
-                    { name: '5_Etiqueta.jpg', src: labelImage?.preview },
-                    { name: '6_Detalle_Tejido.jpg', src: detailImage?.preview },
+                    { name: '4_Cinta_Metrica_Visual.jpg', src: measurementProofImage },
+                    { name: '5_Prenda_Plano.jpg', src: flatLayImage?.preview },
+                    { name: '6_Etiqueta.jpg', src: labelImage?.preview },
+                    { name: '7_Detalle_Tejido.jpg', src: detailImage?.preview },
                 ].filter(img => img.src);
 
                 return (

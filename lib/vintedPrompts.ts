@@ -1,35 +1,38 @@
+
 // lib/vintedPrompts.ts
 
-export const vintedMasterFront = `**PROMPT FRONTAL PROFESIONAL PARA VINTED:**
+export const vintedMasterFront = `COMMERCIAL FASHION E-COMMERCE PHOTOGRAPH (HEADLESS FRAMING)
 
-Create a hyperrealistic e-commerce photograph for a marketplace like Vinted. The subject is wearing the garment from the second image.
+Create a photorealistic fashion photograph for a marketplace like Vinted. The subject is wearing the garment from the second input image.
 
-**SUBJECT & POSE (INSTRUCTIONS WILL BE PREPENDED DYNAMICALLY):**
-- The main subject's characteristics (human model or mannequin) and body proportions will be provided in a separate instruction block.
-- The pose should be a natural, standing pose suitable for e-commerce: weight evenly distributed, arms relaxed.
-- The body should be angled straight-on to the camera.
-- The overall look must be natural, showing how the garment falls on a body.
+CONTEXT:
+- Standard commercial product photo.
+- The image is safe, professional, and suitable for general audiences.
 
-**FRAMING - CRITICAL:**
-- Frame cuts at the lower neck/collarbone level to ensure anonymity (NO HEAD/FACE visible).
-- Full body shot showing the garment down to the ankles/feet.
-- Vertical orientation, 3:4 aspect ratio, ideal for mobile viewing.
+COMPOSITION & POSE:
+- Person standing in a natural, relaxed pose, facing camera straight-on.
+- CRITICAL FRAMING: Visible area starts around upper chest/collarbone and goes down to feet. Head is cropped out or above frame.
+- Vertical orientation, 3:4 aspect ratio.
 
-**GARMENT PRESENTATION:**
-- Garment from the second reference image.
-- Natural fabric behavior: realistic wrinkles, drape, and texture.
-- The fit on the body must be accurate and natural.
+GARMENT PRESENTATION:
+- Person wears garment from second image.
+- Show realistic fabric drape, natural wrinkles and believable texture.
+- Fit on body must look accurate and natural.
 
-**STUDIO SETUP:**
-- Background: Seamless, professional, light grey paper backdrop (#F5F5F5).
-- Lighting: Clean, even, soft studio lighting (e.g., two softboxes at 45 degrees).
-- Shadowless floor.
+STUDIO SETUP:
+- Background: Seamless, light grey studio backdrop (#F5F5F5).
+- Lighting: Clean, even, soft studio lighting.
 
-**MANDATORY REQUIREMENTS:**
-The final image must have a professional product photo aesthetic.
-AVOID: Artistic editorials, lifestyle photos, inconsistent lighting, or obvious AI artifacts.
+QUALITY & REALISM (PRIORITY):
+- Image should look like a real photo taken with a professional camera.
+- Natural skin texture with visible pores.
+- The image should clearly look like a professional photograph, not like a 3D render, cartoon or plastic mannequin.
 
-**OUTPUT:** A clean, commercial catalog-style photo focused on the garment.`;
+SAFETY:
+- Subject appears healthy and comfortable.
+- Focused on showing the garment.
+
+NOT plastic, NOT CGI, NOT mannequin`;
 
 export const vintedMasterBack = `**PROMPT TRASERA PROFESIONAL PARA VINTED:**
 

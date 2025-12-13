@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Modality, GenerateContentResponse, HarmCategory, HarmBlockThreshold } from "@google/genai";
 // Fix: Import ImageInput from the centralized types file.
 import type { ModelMeasurements, MedidasPrenda, AnalisisMedidas, AnalisisVisual, ImageInput } from '../types';
@@ -223,7 +224,11 @@ const extractJson = (text: string): string => {
 export const getVisualAnalysisForVinted = async (image: ImageInput): Promise<AnalisisVisual> => {
     const estilosDisponibles = ['floral-romantico', 'elegante-noche', 'casual-verano', 'boho-hippie', 'minimalista-urbano', 'deportivo', 'vintage-retro'];
     const prompt = `
-Analiza este vestido y clasifícalo:
+Analiza esta prenda de ropa y extrae sus detalles visuales para un anuncio de venta.
+
+TIPO_PRENDA (elige la más precisa):
+Vestido, Top, Blusa, Camiseta, Pantalón, Jeans, Falda, Chaqueta, Abrigo, Jersey, Sudadera, Short, Mono, Blazer, Accesorio
+
 ESTILO (elige uno):
 floral-romantico: Estampados florales, colores pastel, cortes femeninos
 elegante-noche: Negro, satén, escotes, cortes ajustados
@@ -232,14 +237,22 @@ boho-hippie: Étnico, flecos, bordados, colores tierra
 minimalista-urbano: Liso, negro/blanco/neutro, líneas limpias
 deportivo: Tejidos técnicos, casual, cómodo
 vintage-retro: Estilo años 60-90, cortes clásicos
+
 ESTAMPADO:
 floral, liso, rayas, lunares, geometrico, animal-print, abstracto, ninguno
+
 TEJIDO (por apariencia):
-algodon, seda, poliester, lino, punto, denim, otro
+algodon, seda, poliester, lino, punto, denim, terciopelo, lana, encaje, otro
+
 COLOR PREDOMINANTE:
-Nombre del color principal
-Devuelve JSON:
+Nombre del color principal en español (ej: "Rojo carmesí", "Azul marino", "Beige")
+
+KEYWORDS:
+Lista de 5 palabras clave descriptivas (ej: "cuello en V", "manga abullonada", "tiro alto", "oversize", "ajustado")
+
+Devuelve un JSON válido:
 {
+"tipoPrenda": "...",
 "estilo": "...",
 "confianza": 0-1,
 "estampado": "...",
@@ -261,6 +274,9 @@ Devuelve JSON:
         }
         if (typeof parsed.confianza !== 'number' || parsed.confianza < 0 || parsed.confianza > 1) {
             parsed.confianza = 0.5; // Default confidence
+        }
+        if (!parsed.tipoPrenda) {
+            parsed.tipoPrenda = 'Prenda';
         }
         return parsed;
     } catch (error) {
@@ -295,5 +311,31 @@ export const generateInfographic = async (flatLayImage: ImageInput, medidas: Med
         - Talla: ${info.talla}
     4.  The final output must be a single, high-quality JPEG image with a 1:1 square aspect ratio. The background should be a clean, neutral light grey. Do not add any other text or elements.`;
     
+    return callGeminiApiForImage(prompt, [flatLayImage]);
+};
+
+export const generateMeasurementProof = async (flatLayImage: ImageInput, medidas: MedidasPrenda): Promise<string> => {
+    // Construct measurement labels
+    const measurementsList = [];
+    if (medidas.largo) measurementsList.push(`Length: ${medidas.largo}cm`);
+    if (medidas.anchoPecho) measurementsList.push(`Chest: ${medidas.anchoPecho}cm`);
+    if (medidas.anchoCintura) measurementsList.push(`Waist: ${medidas.anchoCintura}cm`);
+    
+    const measurementsString = measurementsList.join(', ');
+
+    const prompt = `TECHNICAL FASHION VISUALIZATION - DIGITAL TAPE MEASURE:
+
+Task: Create a 'Visual Proof' image for a Vinted listing. Take the input image of the garment and OVERLAY graphic measurement lines (dimension arrows) to show exactly where the measurements were taken.
+
+STRICT INSTRUCTIONS:
+1. PRESERVE THE ORIGINAL IMAGE: Do not change the garment, color, or shape.
+2. OVERLAY GRAPHICS: Draw distinct, high-contrast, technical double-headed arrows (like an architect's blueprint or technical drawing) directly over the garment.
+   - Draw a VERTICAL arrow for Length (${medidas.largo}cm) from top to bottom.
+   - Draw HORIZONTAL arrows for Chest (${medidas.anchoPecho}cm) and Waist (${medidas.anchoCintura}cm) at the appropriate heights.
+3. LABELS: Place the measurement text (e.g., "${medidas.anchoPecho} cm") clearly next to each arrow. Use a clean, bold, sans-serif font that is easy to read.
+4. STYLE: The aesthetic should look like a professional "Digital Tape Measure" or Augmented Reality (AR) overlay. Use bright colors for the lines (like Cyan or Magenta) so they stand out against the fabric.
+
+Output: A photorealistic image of the garment with the technical overlay.`;
+
     return callGeminiApiForImage(prompt, [flatLayImage]);
 };
