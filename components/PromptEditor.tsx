@@ -10,17 +10,29 @@ interface ValidationResult {
 interface PromptEditorProps {
     value: string;
     onChange: (newValue: string) => void;
+    onReset?: () => void;
     validation: ValidationResult;
     label: string;
     id: string;
 }
 
-const PromptEditor: React.FC<PromptEditorProps> = ({ value, onChange, validation, label, id }) => {
+const PromptEditor: React.FC<PromptEditorProps> = ({ value, onChange, onReset, validation, label, id }) => {
     const wordCount = value.trim().split(/\s+/).filter(Boolean).length;
     
     return (
         <div className="prompt-editor space-y-2">
-            <label htmlFor={id} className="block text-sm font-medium text-zinc-300">{label}</label>
+            <div className="flex justify-between items-end">
+                <label htmlFor={id} className="block text-sm font-medium text-zinc-300">{label}</label>
+                {onReset && (
+                    <button 
+                        onClick={onReset}
+                        className="text-xs text-zinc-500 hover:text-indigo-400 transition-colors underline decoration-dotted"
+                        title="Restaurar el prompt original por defecto"
+                    >
+                        Restaurar Original
+                    </button>
+                )}
+            </div>
             <textarea
                 id={id}
                 value={value}

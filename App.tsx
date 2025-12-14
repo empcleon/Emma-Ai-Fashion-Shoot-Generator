@@ -20,6 +20,8 @@ import { fullBodyPrompts } from './lib/prompts';
 import { validatePrompt } from './lib/promptValidator';
 import { vintedMasterFront, vintedMasterBack, vintedSpecialized } from './lib/vintedPrompts';
 import { ASSISTANT_SYSTEM_INSTRUCTION } from './lib/assistantSystemInstruction';
+import { usePersistentString } from './hooks/usePersistentState';
+import { saveDefaultModel, getDefaultModel, clearDefaultModel } from './utils/db';
 
 
 const initialGeneratedImages: GeneratedImage[] = [
@@ -576,42 +578,42 @@ const promptTemplates = {
 
 // --- START: Detailed Styling Options ---
 const garmentLengthOptions = {
-    'original': { name: 'Original', promptInstruction: '' },
-    'micro': { name: 'Micro', promptInstruction: 'Please modify the main garment to be an extremely short, micro-length style that barely covers.' },
-    'super-mini': { name: 'Super Mini', promptInstruction: 'Please modify the main garment to be a super-mini length, ending high on the thigh.' },
-    'mini': { name: 'Mini', promptInstruction: 'Please modify the main garment to be a classic mini-length, ending at the mid-thigh.' },
-    'rodilla': { name: 'A la Rodilla', promptInstruction: 'Please modify the main garment to be knee-length.' },
-    'midi': { name: 'Midi', promptInstruction: 'Please modify the main garment to be a classic midi-length, ending at the mid-calf.' },
-    'maxi': { name: 'Maxi', promptInstruction: 'Please modify the main garment to be a long, floor-length maxi style.' },
+    'original': { name: 'Original', promptInstruction: 'Keep the original garment length exactly as in the reference image.' },
+    'micro': { name: 'Micro', promptInstruction: 'Change ONLY the dress length to an extremely short micro style that barely covers the upper thighs. Do NOT change the model\'s legs, body shape, or proportions.' },
+    'super-mini': { name: 'Super Mini', promptInstruction: 'Change ONLY the dress length to a super-mini style ending high on the thighs. Keep the same leg anatomy and body proportions.' },
+    'mini': { name: 'Mini', promptInstruction: 'Change ONLY the dress length to a classic mini length, ending at mid-thigh. Do not alter the model\'s height, leg thickness, or hip width.' },
+    'rodilla': { name: 'A la Rodilla', promptInstruction: 'Change ONLY the dress length so it ends around the knees (knee-length). Preserve the original cut, neckline, and fit on the torso.' },
+    'midi': { name: 'Midi', promptInstruction: 'Change ONLY the dress length to a classic midi, ending at mid-calf. Do not change the upper part of the garment or the body shape.' },
+    'maxi': { name: 'Maxi', promptInstruction: 'Change ONLY the dress length to a long, floor-length maxi style. Keep the same silhouette and body proportions underneath.' },
 };
 
 const garmentFitOptions = {
-    'fitted': { name: 'Ajustado', promptInstruction: 'Please modify the garment to be very form-fitting and snug against the body.' },
-    'regular': { name: 'Regular', promptInstruction: 'The garment should have a standard, regular fit.' },
-    'loose': { name: 'Holgado', promptInstruction: 'Please modify the garment to have a loose, oversized, and relaxed fit.' },
+    'fitted': { name: 'Ajustado', promptInstruction: 'Make the garment very form-fitting and snug AGAINST THE EXISTING BODY, without reshaping or slimming the body itself. The fabric follows the current slim silhouette (178 cm, 62 kg, 98/75/102) without changing it.' },
+    'regular': { name: 'Regular', promptInstruction: 'Keep a standard, regular fit that follows the existing body shape naturally, without adding or removing volume from the body.' },
+    'loose': { name: 'Holgado', promptInstruction: 'Make the garment loose and relaxed, draping over the EXISTING slim body without adding volume to the body itself. The oversized look must come from the fabric, not from changing the body proportions.' },
 };
 
 const fixedAccessoryOptions = {
   'none': { name: 'None', promptInstruction: '' },
-  'black-tights': { name: 'Black Tights', promptInstruction: 'The model is also wearing elegant, opaque black tights.' },
-  'nude-tights': { name: 'Nude Tights', promptInstruction: 'The model is also wearing sheer nude (caramel color) tights.' },
-  'fishnet-tights': { name: 'Fishnet Tights', promptInstruction: 'The model is also wearing stylish black fishnet tights.' },
+  'black-tights': { name: 'Black Tights', promptInstruction: 'Add opaque black tights as an accessory on the legs, keeping the leg shape and proportions unchanged.' },
+  'nude-tights': { name: 'Nude Tights', promptInstruction: 'Add sheer nude tights on the legs, without modifying leg thickness or length.' },
+  'fishnet-tights': { name: 'Fishnet Tights', promptInstruction: 'Add black fishnet tights as a surface pattern over the legs, preserving the natural leg anatomy.' },
 };
 
 const beltOptions = {
     'none': { name: 'None', promptInstruction: '' },
-    'thin-black': { name: 'Thin Black', promptInstruction: 'Please add a thin, black leather belt to the outfit.' },
-    'wide-brown': { name: 'Wide Brown', promptInstruction: 'Please add a wide, brown leather belt to the outfit.' },
-    'gold-chain': { name: 'Gold Chain', promptInstruction: 'Please add a delicate gold chain belt to the outfit.' },
+    'thin-black': { name: 'Thin Black', promptInstruction: 'Add a thin black leather belt at the natural waistline OVER the garment, without cinching or changing the body shape.' },
+    'wide-brown': { name: 'Wide Brown', promptInstruction: 'Add a wide brown leather belt over the dress, but do NOT change the waist measurement or torso proportions.' },
+    'gold-chain': { name: 'Gold Chain', promptInstruction: 'Add a delicate gold chain belt as an accessory, without altering the waist shape or size.' },
 };
 // --- END: Detailed Styling Options ---
 
 const shoeSwapOptions = {
-    'barefoot': { name: 'Barefoot', promptInstruction: 'barefoot' },
-    'black-heels': { name: 'Black Heels', promptInstruction: 'elegant, classic black high-heels' },
-    'white-sneakers': { name: 'White Sneakers', promptInstruction: 'clean, minimalist white sneakers' },
+    'barefoot': { name: 'Barefoot', promptInstruction: 'barefoot, natural toes, neutral nails, realistic skin texture' },
+    'black-heels': { name: 'Black Heels', promptInstruction: 'elegant closed-toe black high heels' },
+    'white-sneakers': { name: 'White Sneakers', promptInstruction: 'clean, minimalist white low-top sneakers' },
     'brown-boots': { name: 'Brown Boots', promptInstruction: 'stylish brown leather ankle boots' },
-    'sandals': { name: 'Sandals', promptInstruction: 'simple, elegant flat sandals' },
+    'sandals': { name: 'Sandals', promptInstruction: 'simple flat sandals with slim straps, showing the toes naturally' },
 };
 
 const vintedTemplates = {
@@ -651,10 +653,6 @@ const App: React.FC = () => {
     const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>(initialGeneratedImages);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
-    const [aspectRatio, setAspectRatio] = useState<string>('3:4');
-    const [modelFidelity, setModelFidelity] = useState<string>('faithful');
-    const [promptQuality, setPromptQuality] = useState<'ultra' | 'fast'>('ultra');
-    const [activeStyle, setActiveStyle] = useState<string>('default');
     const [editingImage, setEditingImage] = useState<GeneratedImage | null>(null);
     const [modelMeasurements, setModelMeasurements] = useState<ModelMeasurements>({
         height: '178',
@@ -676,36 +674,44 @@ const App: React.FC = () => {
     const [processedGarmentFor3D, setProcessedGarmentFor3D] = useState<string | null>(null);
     const [isProcessingFor3D, setIsProcessingFor3D] = useState<boolean>(false);
 
-    // Phase 2 State: Custom prompts for editor
-    const [customFullBodyPrompt, setCustomFullBodyPrompt] = useState(fullBodyPrompts.front.ultra);
-    const [customFullBodyBackPrompt, setCustomFullBodyBackPrompt] = useState(fullBodyPrompts.back.ultra);
-    const [customVirtualTryOnPrompt, setCustomVirtualTryOnPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.VIRTUAL_TRY_ON)?.prompt ?? '');
-    const [customVintedFrontPrompt, setCustomVintedFrontPrompt] = useState(vintedMasterFront);
-    const [customVintedBackPrompt, setCustomVintedBackPrompt] = useState(vintedMasterBack);
+    // Phase 2 State: Persistent Custom Prompts
+    const [customFullBodyPrompt, setCustomFullBodyPrompt, resetFullBodyPrompt] = usePersistentString('emma_prompt_full_body_front', fullBodyPrompts.front.ultra);
+    const [customFullBodyBackPrompt, setCustomFullBodyBackPrompt, resetFullBodyBackPrompt] = usePersistentString('emma_prompt_full_body_back', fullBodyPrompts.back.ultra);
+    const [customVirtualTryOnPrompt, setCustomVirtualTryOnPrompt, resetVirtualTryOnPrompt] = usePersistentString('emma_prompt_virtual_try_on', initialGeneratedImages.find(img => img.id === GenerationTypeEnum.VIRTUAL_TRY_ON)?.prompt ?? '');
     
-    const [customUrbanPrompt, setCustomUrbanPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.URBAN)?.prompt ?? '');
-    const [customRuralPrompt, setCustomRuralPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.RURAL)?.prompt ?? '');
+    const [customVintedFrontPrompt, setCustomVintedFrontPrompt, resetVintedFrontPrompt] = usePersistentString('emma_prompt_vinted_front', vintedMasterFront);
+    const [customVintedBackPrompt, setCustomVintedBackPrompt, resetVintedBackPrompt] = usePersistentString('emma_prompt_vinted_back', vintedMasterBack);
     
-    // New Editorial Prompts State
-    const [customRooftopPrompt, setCustomRooftopPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.ROOFTOP_EDITORIAL)?.prompt ?? '');
-    const [customCafePrompt, setCustomCafePrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.CAFE_EDITORIAL)?.prompt ?? '');
-    const [customNightPrompt, setCustomNightPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.NIGHT_CITY_EDITORIAL)?.prompt ?? '');
+    const [customUrbanPrompt, setCustomUrbanPrompt, resetUrbanPrompt] = usePersistentString('emma_prompt_urban', initialGeneratedImages.find(img => img.id === GenerationTypeEnum.URBAN)?.prompt ?? '');
+    const [customRuralPrompt, setCustomRuralPrompt, resetRuralPrompt] = usePersistentString('emma_prompt_rural', initialGeneratedImages.find(img => img.id === GenerationTypeEnum.RURAL)?.prompt ?? '');
+    
+    // New Editorial Prompts State with persistence
+    const [customRooftopPrompt, setCustomRooftopPrompt, resetRooftopPrompt] = usePersistentString('emma_prompt_rooftop', initialGeneratedImages.find(img => img.id === GenerationTypeEnum.ROOFTOP_EDITORIAL)?.prompt ?? '');
+    const [customCafePrompt, setCustomCafePrompt, resetCafePrompt] = usePersistentString('emma_prompt_cafe', initialGeneratedImages.find(img => img.id === GenerationTypeEnum.CAFE_EDITORIAL)?.prompt ?? '');
+    const [customNightPrompt, setCustomNightPrompt, resetNightPrompt] = usePersistentString('emma_prompt_night', initialGeneratedImages.find(img => img.id === GenerationTypeEnum.NIGHT_CITY_EDITORIAL)?.prompt ?? '');
 
-    // Vinted & Playground Prompts State
-    const [customVintedHomePrompt, setCustomVintedHomePrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.VINTED_HOME)?.prompt ?? '');
-    const [customVintedMirrorPrompt, setCustomVintedMirrorPrompt] = useState(initialGeneratedImages.find(img => img.id === GenerationTypeEnum.VINTED_MIRROR)?.prompt ?? '');
-    const [customPlaygroundPrompt, setCustomPlaygroundPrompt] = useState('');
+    // Vinted & Playground Prompts State with persistence
+    const [customVintedHomePrompt, setCustomVintedHomePrompt, resetVintedHomePrompt] = usePersistentString('emma_prompt_vinted_home', initialGeneratedImages.find(img => img.id === GenerationTypeEnum.VINTED_HOME)?.prompt ?? '');
+    const [customVintedMirrorPrompt, setCustomVintedMirrorPrompt, resetVintedMirrorPrompt] = usePersistentString('emma_prompt_vinted_mirror', initialGeneratedImages.find(img => img.id === GenerationTypeEnum.VINTED_MIRROR)?.prompt ?? '');
+    const [customPlaygroundPrompt, setCustomPlaygroundPrompt, resetPlaygroundPrompt] = usePersistentString('emma_prompt_playground', '');
 
     const [finalFullBodyPrompt, setFinalFullBodyPrompt] = useState('');
     const [finalFullBodyBackPrompt, setFinalFullBodyBackPrompt] = useState('');
     const [activeVintedTemplate, setActiveVintedTemplate] = useState('generic');
 
 
-    // --- START: Detailed Styling State ---
-    const [garmentLength, setGarmentLength] = useState<string>('original');
-    const [garmentFit, setGarmentFit] = useState<string>('regular');
-    const [fixedAccessory, setFixedAccessory] = useState<string>('none');
-    const [belt, setBelt] = useState<string>('none');
+    // --- START: Detailed Styling State (Persistent) ---
+    const [aspectRatio, setAspectRatio] = usePersistentString('emma_aspect_ratio', '3:4');
+    const [modelFidelity, setModelFidelity] = usePersistentString('emma_model_fidelity', 'faithful');
+    // FIX: Persist prompt quality so it doesn't reset to 'ultra' on reload, potentially clashing with stored prompt text
+    const [promptQuality, setPromptQuality] = usePersistentString('emma_prompt_quality', 'ultra') as [ 'ultra' | 'fast', (q: string) => void, () => void ];
+    // FIX: Restored persistence to activeStyle
+    const [activeStyle, setActiveStyle] = usePersistentString('emma_active_style', 'default');
+
+    const [garmentLength, setGarmentLength] = usePersistentString('emma_style_length', 'original');
+    const [garmentFit, setGarmentFit] = usePersistentString('emma_style_fit', 'regular');
+    const [fixedAccessory, setFixedAccessory] = usePersistentString('emma_style_accessory', 'none');
+    const [belt, setBelt] = usePersistentString('emma_style_belt', 'none');
     // --- END: Detailed Styling State ---
     
     // State for Silhouette Generator
@@ -733,6 +739,9 @@ const App: React.FC = () => {
 
     // State for Shoe Swap
     const [isSwappingShoes, setIsSwappingShoes] = useState<boolean>(false);
+    
+    // Save feedback state
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
      const handleApiError = (err: unknown, defaultMessage: string = 'An unknown error occurred.') => {
         let errorMessage = err instanceof Error ? err.message : defaultMessage;
@@ -785,6 +794,51 @@ const App: React.FC = () => {
             setIsAppLoaded(true);
         }
     }, []);
+
+    // Load default model from IndexedDB
+    useEffect(() => {
+        const loadDefaultModel = async () => {
+            console.log("Attempting to load default model from DB...");
+            try {
+                const file = await getDefaultModel();
+                if (file) {
+                    console.log("Found default model in DB:", file.name, file.type, file.size);
+                    const { preview, base64, mimeType } = await resizeAndEncodeImage(file);
+                    setModelImage({ file, preview, base64, mimeType });
+                    console.log("Default model loaded and processed successfully");
+                } else {
+                    console.log("No default model found in DB");
+                }
+            } catch (err) {
+                console.error("Failed to load default model from IndexedDB:", err);
+            }
+        };
+        loadDefaultModel();
+    }, []);
+
+    const handleSaveDefaultModel = async () => {
+        if (modelImage && modelImage.file) {
+            setSaveStatus('saving');
+            try {
+                await saveDefaultModel(modelImage.file);
+                setSaveStatus('success');
+                setTimeout(() => setSaveStatus('idle'), 2500);
+            } catch (e) {
+                console.error("Error saving default model:", e);
+                setError("Error al guardar modelo predeterminado.");
+                setSaveStatus('error');
+            }
+        }
+    };
+
+    const handleClearDefaultModel = async () => {
+        try {
+            await clearDefaultModel();
+            console.log("Default model cleared");
+        } catch (e) {
+            console.error("Error clearing default model:", e);
+        }
+    };
 
     useEffect(() => {
         const handleBeforeInstallPrompt = (e: Event) => {
@@ -1005,21 +1059,8 @@ const App: React.FC = () => {
 
     const handleStyleChange = (styleId: string) => {
         setActiveStyle(styleId);
-        const newModifier = promptTemplates[styleId as keyof typeof promptTemplates]?.modifier ?? '';
-
-        setGeneratedImages(prev =>
-            prev.map(img => {
-                let newPrompt = img.prompt;
-                
-                Object.values(promptTemplates).forEach(template => {
-                    if (template.modifier) {
-                        newPrompt = newPrompt.replace(template.modifier, '');
-                    }
-                });
-                
-                return { ...img, prompt: newPrompt + newModifier };
-            })
-        );
+        // We don't modify generatedImages directly here anymore.
+        // The useEffect hook dependent on 'activeStyle' will handle the prompt update logic.
     };
     
     const handleMeasurementChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -1027,21 +1068,40 @@ const App: React.FC = () => {
         setModelMeasurements(prev => ({ ...prev, [name]: value }));
     };
 
+    // Helper to calculate final prompt based on base + style
+    const getPromptWithStyle = useCallback((basePrompt: string, styleId: string) => {
+        if (styleId === 'custom' || styleId === 'default') return basePrompt;
+        const modifier = promptTemplates[styleId as keyof typeof promptTemplates]?.modifier ?? '';
+        // If the base prompt already contains the modifier, don't add it again (simple check)
+        if (basePrompt.endsWith(modifier)) return basePrompt;
+        return basePrompt + modifier;
+    }, []);
+
     const handlePromptChange = (id: GenerationType, newPrompt: string) => {
-        setActiveStyle('custom');
         setGeneratedImages(prev =>
             prev.map(img => (img.id === id ? { ...img, prompt: newPrompt } : img))
         );
     };
 
-    // Effect to sync editor state with main state
+    // Effect to sync editor state with main state AND apply active style
     useEffect(() => {
-        handlePromptChange(GenerationTypeEnum.FULL_BODY, customFullBodyPrompt);
-    }, [customFullBodyPrompt]);
+        const finalPrompt = getPromptWithStyle(customFullBodyPrompt, activeStyle);
+        handlePromptChange(GenerationTypeEnum.FULL_BODY, finalPrompt);
+        
+        // If prompt text in editor matches default for current quality, ensure style is reset/sync
+        if (customFullBodyPrompt !== fullBodyPrompts.front[promptQuality as 'ultra' | 'fast'] && activeStyle === 'default') {
+             setActiveStyle('custom');
+        }
+    }, [customFullBodyPrompt, promptQuality, activeStyle, getPromptWithStyle, setActiveStyle]);
 
     useEffect(() => {
-        handlePromptChange(GenerationTypeEnum.FULL_BODY_BACK, customFullBodyBackPrompt);
-    }, [customFullBodyBackPrompt]);
+        const finalPrompt = getPromptWithStyle(customFullBodyBackPrompt, activeStyle);
+        handlePromptChange(GenerationTypeEnum.FULL_BODY_BACK, finalPrompt);
+        
+        if (customFullBodyBackPrompt !== fullBodyPrompts.back[promptQuality as 'ultra' | 'fast'] && activeStyle === 'default') {
+             setActiveStyle('custom');
+        }
+    }, [customFullBodyBackPrompt, promptQuality, activeStyle, getPromptWithStyle, setActiveStyle]);
 
     useEffect(() => {
         handlePromptChange(GenerationTypeEnum.VIRTUAL_TRY_ON, customVirtualTryOnPrompt);
@@ -1089,11 +1149,13 @@ const App: React.FC = () => {
         handlePromptChange(GenerationTypeEnum.PLAYGROUND, customPlaygroundPrompt);
     }, [customPlaygroundPrompt]);
 
-    // Effect to update editors when quality template changes
-    useEffect(() => {
-        setCustomFullBodyPrompt(fullBodyPrompts.front[promptQuality]);
-        setCustomFullBodyBackPrompt(fullBodyPrompts.back[promptQuality]);
-    }, [promptQuality]);
+    // Handlers for Prompt Quality Change that explicitly update persistent state
+    const handlePromptQualityChange = (quality: 'ultra' | 'fast') => {
+        setPromptQuality(quality);
+        setCustomFullBodyPrompt(fullBodyPrompts.front[quality]);
+        setCustomFullBodyBackPrompt(fullBodyPrompts.back[quality]);
+        setActiveStyle('default'); // Reset style to default when quality changes to apply new base
+    };
 
     const handleVintedTemplateSelect = (templateKey: string) => {
         setActiveVintedTemplate(templateKey);
@@ -1216,6 +1278,12 @@ const App: React.FC = () => {
             dynamicAccessoryInstruction,
         ].filter(Boolean);
         
+        // SANDBOX HEADER: Creates a safety context for the styling instructions
+        const sandboxHeader = `**STYLING & GARMENT MODIFICATIONS (GARMENT-ONLY):**
+Apply the following changes ONLY to the clothing item.
+Do NOT change the model’s body, face, age, ethnicity, height, or measurements (178 cm, 62 kg, 98 bust, 75 waist, 102 hips).
+Keep the same silhouette, pose, and overall identity from Image 1.`;
+
         let finalStylingInstructions = 'None.';
         if (activeInstructions.length > 0) {
             finalStylingInstructions = activeInstructions
@@ -1233,7 +1301,7 @@ const App: React.FC = () => {
         finalPrompt = `${modelRefInstruction}\n\n${finalPrompt}`;
     
         // Append styling, technical, and variation instructions
-        finalPrompt += `\n\n**STYLING & GARMENT MODIFICATIONS:**\n${finalStylingInstructions}`;
+        finalPrompt += `\n\n${sandboxHeader}\n${finalStylingInstructions}`;
         finalPrompt += `\n\n**TECHNICAL REQUIREMENTS:**\n- Aspect ratio must be ${aspectRatio}.`;
         
         if (outfitCategory) {
@@ -1253,9 +1321,13 @@ const App: React.FC = () => {
     }, [modelFidelity, modelMeasurements, garmentLength, garmentFit, fixedAccessory, belt, accessoryImages, aspectRatio, outfitCategory, getModelCharacteristics, getAccessoryPromptFragment]);
 
     useEffect(() => {
-        setFinalFullBodyPrompt(buildFullBodyPrompt(customFullBodyPrompt, false));
-        setFinalFullBodyBackPrompt(buildFullBodyPrompt(customFullBodyBackPrompt, true));
-    }, [buildFullBodyPrompt, customFullBodyPrompt, customFullBodyBackPrompt]);
+        // We use customFullBodyPrompt as the base, and apply activeStyle if needed
+        const finalFrontPrompt = getPromptWithStyle(customFullBodyPrompt, activeStyle);
+        const finalBackPrompt = getPromptWithStyle(customFullBodyBackPrompt, activeStyle);
+
+        setFinalFullBodyPrompt(buildFullBodyPrompt(finalFrontPrompt, false));
+        setFinalFullBodyBackPrompt(buildFullBodyPrompt(finalBackPrompt, true));
+    }, [buildFullBodyPrompt, customFullBodyPrompt, customFullBodyBackPrompt, activeStyle, getPromptWithStyle]);
 
     const handleGenerateMannequin = async () => {
         setIsGeneratingMannequin(true);
@@ -1565,11 +1637,13 @@ ${finalStylingInstructions}
         try {
             const prompt = `CRITICAL TASK: IMAGE EDITING.
 You are a professional photo retoucher. Your task is to modify the provided image by changing ONLY the footwear.
-**Instruction:** Realistically change the model's footwear to be ${shoePromptInstruction}.
+**Instruction:** Realistically change ONLY the model's footwear to: ${shoePromptInstruction}.
 **Strict Rules:**
-- DO NOT change the model, her pose, the garment she is wearing, the background, or the lighting.
-- The edit must be seamless and photorealistic.
-- If the instruction is 'barefoot', remove the shoes completely and render realistic bare feet.
+- Keep the same person, body shape and measurements (178 cm, 62 kg, 98/75/102).
+- Do NOT change the model's legs, ankles, pose, dress, background, or lighting.
+- Feet and ankles must look anatomically correct, with natural skin texture and visible toes when exposed.
+- Skin must have natural pores and fine details, NOT plastic, NOT CGI, NOT mannequin.
+AVOID: changing leg thickness, altering identity, or adding visual artifacts.
 The output MUST be only the modified image.`;
     
             const mimeType = fullBodyImage.src.match(/data:(.*);base64,/)?.[1] ?? 'image/png';
@@ -1843,6 +1917,30 @@ Return only the newly generated image reflecting this change.`;
                                     onFileChange={(file) => handleFileChange(file, 'model')} 
                                     currentFile={modelImage}
                                 />
+                                <div className="flex justify-between items-center mt-2 px-1">
+                                    <button 
+                                        onClick={handleSaveDefaultModel}
+                                        disabled={!modelImage || saveStatus === 'saving'} 
+                                        className={`text-xs transition-colors flex items-center gap-1 font-medium ${
+                                            saveStatus === 'success' ? 'text-green-400' :
+                                            saveStatus === 'error' ? 'text-red-400' :
+                                            !modelImage ? 'text-zinc-600 cursor-not-allowed' : 'text-zinc-400 hover:text-indigo-400'
+                                        }`}
+                                        title="Guardar esta foto como predeterminada"
+                                    >
+                                        {saveStatus === 'saving' ? <SpinnerIcon className="w-3 h-3"/> : <span>💾</span>}
+                                        {saveStatus === 'success' ? '¡Guardado!' : 
+                                         saveStatus === 'error' ? 'Error' : 
+                                         saveStatus === 'saving' ? 'Guardando...' : 'Guardar Predeterminado'}
+                                    </button>
+                                    <button 
+                                        onClick={handleClearDefaultModel}
+                                        className="text-xs text-zinc-500 hover:text-red-400 transition-colors flex items-center gap-1"
+                                        title="Borrar foto predeterminada"
+                                    >
+                                        <span>🗑️</span> Olvidar
+                                    </button>
+                                </div>
                             </div>
                             <div className="lg:col-span-6">
                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2059,7 +2157,7 @@ Return only the newly generated image reflecting this change.`;
                                 {Object.entries(promptQualityOptions).map(([id, { name }]) => (
                                     <button
                                         key={id}
-                                        onClick={() => setPromptQuality(id as 'ultra' | 'fast')}
+                                        onClick={() => handlePromptQualityChange(id as 'ultra' | 'fast')}
                                         className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
                                             promptQuality === id
                                                 ? 'bg-indigo-600 text-white'
@@ -2179,21 +2277,33 @@ Return only the newly generated image reflecting this change.`;
                                     id="full-body-prompt"
                                     label="Full Body Shot (Front) - Base"
                                     value={customFullBodyPrompt}
-                                    onChange={setCustomFullBodyPrompt}
+                                    onChange={(val) => {
+                                        setCustomFullBodyPrompt(val);
+                                        // Removed setActiveStyle('custom') to preserve active style when editing base text
+                                    }}
+                                    onReset={resetFullBodyPrompt}
                                     validation={fullBodyPromptValidation}
                                 />
                                 <PromptEditor
                                     id="full-body-back-prompt"
                                     label="Full Body Shot (Back) - Base"
                                     value={customFullBodyBackPrompt}
-                                    onChange={setCustomFullBodyBackPrompt}
+                                    onChange={(val) => {
+                                        setCustomFullBodyBackPrompt(val);
+                                        // Removed setActiveStyle('custom')
+                                    }}
+                                    onReset={resetFullBodyBackPrompt}
                                     validation={fullBodyBackPromptValidation}
                                 />
                                 <PromptEditor
                                     id="virtual-try-on-prompt"
                                     label="Virtual Try-On - Base"
                                     value={customVirtualTryOnPrompt}
-                                    onChange={setCustomVirtualTryOnPrompt}
+                                    onChange={(val) => {
+                                        setCustomVirtualTryOnPrompt(val);
+                                        // Removed setActiveStyle('custom')
+                                    }}
+                                    onReset={resetVirtualTryOnPrompt}
                                     validation={virtualTryOnPromptValidation}
                                 />
 
@@ -2219,14 +2329,22 @@ Return only the newly generated image reflecting this change.`;
                                             id="vinted-front-prompt"
                                             label="Pose Vinted (Front) - Base"
                                             value={customVintedFrontPrompt}
-                                            onChange={setCustomVintedFrontPrompt}
+                                            onChange={(val) => {
+                                                setCustomVintedFrontPrompt(val);
+                                                // Removed setActiveStyle('custom')
+                                            }}
+                                            onReset={resetVintedFrontPrompt}
                                             validation={vintedFrontPromptValidation}
                                         />
                                         <PromptEditor
                                             id="vinted-back-prompt"
                                             label="Pose Vinted (Back) - Base"
                                             value={customVintedBackPrompt}
-                                            onChange={setCustomVintedBackPrompt}
+                                            onChange={(val) => {
+                                                setCustomVintedBackPrompt(val);
+                                                // Removed setActiveStyle('custom')
+                                            }}
+                                            onReset={resetVintedBackPrompt}
                                             validation={vintedBackPromptValidation}
                                         />
                                     </div>
@@ -2239,14 +2357,22 @@ Return only the newly generated image reflecting this change.`;
                                             id="vinted-home-prompt"
                                             label="Vinted Home (Anti-Ban) - Base"
                                             value={customVintedHomePrompt}
-                                            onChange={setCustomVintedHomePrompt}
+                                            onChange={(val) => {
+                                                setCustomVintedHomePrompt(val);
+                                                // Removed setActiveStyle('custom')
+                                            }}
+                                            onReset={resetVintedHomePrompt}
                                             validation={vintedHomePromptValidation}
                                         />
                                         <PromptEditor
                                             id="vinted-mirror-prompt"
                                             label="Vinted Mirror Selfie - Base"
                                             value={customVintedMirrorPrompt}
-                                            onChange={setCustomVintedMirrorPrompt}
+                                            onChange={(val) => {
+                                                setCustomVintedMirrorPrompt(val);
+                                                // Removed setActiveStyle('custom')
+                                            }}
+                                            onReset={resetVintedMirrorPrompt}
                                             validation={vintedMirrorPromptValidation}
                                         />
                                         <div className="md:col-span-2">
@@ -2254,7 +2380,11 @@ Return only the newly generated image reflecting this change.`;
                                                 id="playground-prompt"
                                                 label="🧪 Prompt Playground / Test Lab"
                                                 value={customPlaygroundPrompt}
-                                                onChange={setCustomPlaygroundPrompt}
+                                                onChange={(val) => {
+                                                    setCustomPlaygroundPrompt(val);
+                                                    // Removed setActiveStyle('custom')
+                                                }}
+                                                onReset={resetPlaygroundPrompt}
                                                 validation={playgroundPromptValidation}
                                             />
                                         </div>
@@ -2268,35 +2398,55 @@ Return only the newly generated image reflecting this change.`;
                                             id="urban-prompt"
                                             label="City Lifestyle - Base"
                                             value={customUrbanPrompt}
-                                            onChange={setCustomUrbanPrompt}
+                                            onChange={(val) => {
+                                                setCustomUrbanPrompt(val);
+                                                // Removed setActiveStyle('custom')
+                                            }}
+                                            onReset={resetUrbanPrompt}
                                             validation={urbanPromptValidation}
                                         />
                                         <PromptEditor
                                             id="rural-prompt"
                                             label="Weekend Getaway - Base"
                                             value={customRuralPrompt}
-                                            onChange={setCustomRuralPrompt}
+                                            onChange={(val) => {
+                                                setCustomRuralPrompt(val);
+                                                // Removed setActiveStyle('custom')
+                                            }}
+                                            onReset={resetRuralPrompt}
                                             validation={ruralPromptValidation}
                                         />
                                         <PromptEditor
                                             id="rooftop-prompt"
                                             label="Rooftop Sunset - Base"
                                             value={customRooftopPrompt}
-                                            onChange={setCustomRooftopPrompt}
+                                            onChange={(val) => {
+                                                setCustomRooftopPrompt(val);
+                                                // Removed setActiveStyle('custom')
+                                            }}
+                                            onReset={resetRooftopPrompt}
                                             validation={rooftopPromptValidation}
                                         />
                                         <PromptEditor
                                             id="cafe-prompt"
                                             label="Café Terrace - Base"
                                             value={customCafePrompt}
-                                            onChange={setCustomCafePrompt}
+                                            onChange={(val) => {
+                                                setCustomCafePrompt(val);
+                                                // Removed setActiveStyle('custom')
+                                            }}
+                                            onReset={resetCafePrompt}
                                             validation={cafePromptValidation}
                                         />
                                         <PromptEditor
                                             id="night-prompt"
                                             label="Night City Neon - Base"
                                             value={customNightPrompt}
-                                            onChange={setCustomNightPrompt}
+                                            onChange={(val) => {
+                                                setCustomNightPrompt(val);
+                                                // Removed setActiveStyle('custom')
+                                            }}
+                                            onReset={resetNightPrompt}
                                             validation={nightPromptValidation}
                                         />
                                     </div>
