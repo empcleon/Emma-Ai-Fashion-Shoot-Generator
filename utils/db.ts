@@ -4,7 +4,7 @@ const STORE_NAME = 'images';
 const DB_VERSION = 1;
 
 export interface StoredFile {
-    blob: Blob;
+    buffer: ArrayBuffer;
     name: string;
     mimeType: string;
 }
@@ -25,13 +25,14 @@ export const initDB = (): Promise<IDBDatabase> => {
 
 export const saveDefaultModel = async (file: File): Promise<void> => {
     const db = await initDB();
+    const buffer = await file.arrayBuffer();
+    
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(STORE_NAME, 'readwrite');
         const store = transaction.objectStore(STORE_NAME);
         
-        // Store as a structured object to preserve metadata
         const data: StoredFile = {
-            blob: file, // File inherits from Blob
+            buffer: buffer,
             name: file.name,
             mimeType: file.type
         };
@@ -56,16 +57,27 @@ export const getDefaultModel = async (): Promise<File | null> => {
                 return;
             }
 
-            // Handle legacy format (raw Blob/File) or new format (StoredFile object)
-            if (result instanceof Blob || result instanceof File) {
-                // Legacy support
-                const file = new File([result], "default-model.png", { type: result.type || 'image/png' });
-                resolve(file);
-            } else if (result.blob && result.name) {
-                // New robust format
-                const file = new File([result.blob], result.name, { type: result.mimeType });
-                resolve(file);
-            } else {
+            try {
+                // Handle new robust format (StoredFile with ArrayBuffer)
+                if (result.buffer && result.name) {
+                    const file = new File([result.buffer], result.name, { type: result.mimeType });
+                    resolve(file);
+                } 
+                // Legacy support (Blob/File directly stored)
+                else if (result instanceof Blob || result instanceof File) {
+                    const file = new File([result], "default-model.png", { type: result.type || 'image/png' });
+                    resolve(file);
+                }
+                // Legacy support (blob property)
+                else if (result.blob) {
+                     const file = new File([result.blob], result.name || "default-model.png", { type: result.mimeType || 'image/png' });
+                     resolve(file);
+                }
+                else {
+                    resolve(null);
+                }
+            } catch (e) {
+                console.error("Error reconstructing file from DB:", e);
                 resolve(null);
             }
         };

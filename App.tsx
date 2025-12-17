@@ -13,7 +13,7 @@ import VintedAssistantModal from './components/VintedAssistantModal';
 import AccessorySuggestionModal from './components/AccessorySuggestionModal';
 import PromptEditor from './components/PromptEditor';
 import ThreeDViewer from './components/ThreeDViewer';
-import { resizeDataUrl, resizeAndEncodeImage } from './utils/fileUtils';
+import { resizeDataUrl, resizeAndEncodeImage, dataURLtoFile } from './utils/fileUtils';
 import { CloseIcon } from './components/icons/CloseIcon';
 import { SpinnerIcon } from './components/icons/SpinnerIcon';
 import { fullBodyPrompts } from './lib/prompts';
@@ -593,6 +593,15 @@ const garmentFitOptions = {
     'loose': { name: 'Holgado', promptInstruction: 'Make the garment loose and relaxed, draping over the EXISTING slim body without adding volume to the body itself. The oversized look must come from the fabric, not from changing the body proportions.' },
 };
 
+// New "Physics of Fabric" options based on Betty's Guide
+const garmentDrapeOptions = {
+    'natural': { name: 'Natural', promptInstruction: '' },
+    'tension': { name: 'Tensión (Bodycon)', promptInstruction: 'High tension, body-hugging fit. The fabric stretches horizontally over the curvy hips (102cm), potentially shortening the vertical length slightly due to stretch. Look: Sexy, leggy.' },
+    'fluid': { name: 'Fluido (Drapeado)', promptInstruction: 'Fluid, draped fall. The fabric flows gently over curves without clinging tightly. Visual effect: Elongating, elegant, movement-ready.' },
+    'volume': { name: 'Volumen (Globo)', promptInstruction: 'Structured volume. The skirt holds its shape away from the body (A-line, balloon, or stiff fabric). It does not shrink upwards; it maintains full length and architectural shape.' },
+    'heavy': { name: 'Pesado (Caída)', promptInstruction: 'Heavy, vertical drop. The fabric falls straight down with gravity, ignoring curves. Visual effect: Slimming, architectural, vertical lines.' },
+};
+
 const fixedAccessoryOptions = {
   'none': { name: 'None', promptInstruction: '' },
   'black-tights': { name: 'Black Tights', promptInstruction: 'Add opaque black tights as an accessory on the legs, keeping the leg shape and proportions unchanged.' },
@@ -650,7 +659,24 @@ const App: React.FC = () => {
     const [backOutfitImage, setBackOutfitImage] = useState<UploadedFile | null>(null);
     const [accessoryImages, setAccessoryImages] = useState<(UploadedFile | null)[]>([null]);
     const [closetItems, setClosetItems] = useState<ClosetItem[]>([]);
-    const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>(initialGeneratedImages);
+    
+    // Lazy initialization for generatedImages to prevent race condition overwrite
+    const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>(() => {
+        try {
+            const saved = localStorage.getItem('emma_generated_prompts_v1');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                // Map the saved prompts onto the initial structure to ensure new types are added
+                return initialGeneratedImages.map(img => {
+                    return parsed[img.id] ? { ...img, prompt: parsed[img.id] } : img;
+                });
+            }
+        } catch (e) { 
+            console.error("Failed to load initial prompts:", e);
+        }
+        return initialGeneratedImages;
+    });
+
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [editingImage, setEditingImage] = useState<GeneratedImage | null>(null);
@@ -710,6 +736,9 @@ const App: React.FC = () => {
 
     const [garmentLength, setGarmentLength] = usePersistentString('emma_style_length', 'original');
     const [garmentFit, setGarmentFit] = usePersistentString('emma_style_fit', 'regular');
+    // New persistent state for drape
+    const [garmentDrape, setGarmentDrape] = usePersistentString('emma_style_drape', 'natural');
+    
     const [fixedAccessory, setFixedAccessory] = usePersistentString('emma_style_accessory', 'none');
     const [belt, setBelt] = usePersistentString('emma_style_belt', 'none');
     // --- END: Detailed Styling State ---
@@ -795,7 +824,6 @@ const App: React.FC = () => {
         }
     }, []);
 
-    // Load default model from IndexedDB
     useEffect(() => {
         const loadDefaultModel = async () => {
             console.log("Attempting to load default model from DB...");
@@ -816,11 +844,38 @@ const App: React.FC = () => {
         loadDefaultModel();
     }, []);
 
+    // Persistent save effect for prompts
+    useEffect(() => {
+        if (!isAppLoaded) return;
+        const promptsToSave: Record<string, string> = {};
+        generatedImages.forEach(img => {
+            promptsToSave[img.id] = img.prompt;
+        });
+        localStorage.setItem('emma_generated_prompts_v1', JSON.stringify(promptsToSave));
+    }, [generatedImages, isAppLoaded]);
+
     const handleSaveDefaultModel = async () => {
-        if (modelImage && modelImage.file) {
+        if (modelImage) {
             setSaveStatus('saving');
             try {
-                await saveDefaultModel(modelImage.file);
+                // IMPORTANT: Fix for "saving air". 
+                // If modelImage came from closet, file is empty. Reconstruct it from base64 (NOT preview blob url).
+                let fileToSave = modelImage.file;
+                
+                // If file is 0 bytes or suspiciously empty
+                if (!fileToSave.size || fileToSave.size === 0) {
+                     // Reconstruct from base64 string
+                     const byteCharacters = atob(modelImage.base64);
+                     const byteNumbers = new Array(byteCharacters.length);
+                     for (let i = 0; i < byteCharacters.length; i++) {
+                         byteNumbers[i] = byteCharacters.charCodeAt(i);
+                     }
+                     const byteArray = new Uint8Array(byteNumbers);
+                     // Create a new File object with the proper mime type
+                     fileToSave = new File([byteArray], "default-model.png", { type: modelImage.mimeType });
+                }
+
+                await saveDefaultModel(fileToSave);
                 setSaveStatus('success');
                 setTimeout(() => setSaveStatus('idle'), 2500);
             } catch (e) {
@@ -1029,8 +1084,11 @@ const App: React.FC = () => {
     };
     
     const handleSelectFromCloset = (item: ClosetItem) => {
+        // IMPORTANT: Reconstruct a valid File object from the base64 string
+        const file = dataURLtoFile(item.src, `closet-item-${item.id}.png`);
+
         const uploadedFile: UploadedFile = {
-            file: new File([], ''),
+            file: file, // Use real file object
             preview: item.src,
             base64: item.src.split(',')[1],
             mimeType: item.src.match(/data:(.*);base64,/)?.[1] ?? 'image/png'
@@ -1078,9 +1136,17 @@ const App: React.FC = () => {
     }, []);
 
     const handlePromptChange = (id: GenerationType, newPrompt: string) => {
-        setGeneratedImages(prev =>
-            prev.map(img => (img.id === id ? { ...img, prompt: newPrompt } : img))
-        );
+        setGeneratedImages(prev => {
+            // Optimization: Prevent update loop if prompt hasn't changed
+            const existing = prev.find(img => img.id === id);
+            if (existing && existing.prompt === newPrompt) {
+                return prev;
+            }
+
+            const newImages = prev.map(img => (img.id === id ? { ...img, prompt: newPrompt } : img));
+            // Note: Persistence is handled by the dedicated useEffect now
+            return newImages;
+        });
     };
 
     // Effect to sync editor state with main state AND apply active style
@@ -1266,6 +1332,10 @@ const App: React.FC = () => {
     
         const lengthInstruction = garmentLengthOptions[garmentLength as keyof typeof garmentLengthOptions].promptInstruction;
         const fitInstruction = garmentFitOptions[garmentFit as keyof typeof garmentFitOptions].promptInstruction;
+        
+        // Add drape instruction
+        const drapeInstruction = garmentDrapeOptions[garmentDrape as keyof typeof garmentDrapeOptions].promptInstruction;
+
         const fixedAccessoryInstruction = fixedAccessoryOptions[fixedAccessory as keyof typeof fixedAccessoryOptions].promptInstruction;
         const beltInstruction = beltOptions[belt as keyof typeof beltOptions].promptInstruction;
         const dynamicAccessoryInstruction = getAccessoryPromptFragment(validAccessories.length);
@@ -1273,6 +1343,7 @@ const App: React.FC = () => {
         const activeInstructions = [
             lengthInstruction,
             fitInstruction,
+            drapeInstruction, // Include drape here
             fixedAccessoryInstruction,
             beltInstruction,
             dynamicAccessoryInstruction,
@@ -1318,7 +1389,7 @@ Keep the same silhouette, pose, and overall identity from Image 1.`;
         }
         
         return finalPrompt;
-    }, [modelFidelity, modelMeasurements, garmentLength, garmentFit, fixedAccessory, belt, accessoryImages, aspectRatio, outfitCategory, getModelCharacteristics, getAccessoryPromptFragment]);
+    }, [modelFidelity, modelMeasurements, garmentLength, garmentFit, garmentDrape, fixedAccessory, belt, accessoryImages, aspectRatio, outfitCategory, getModelCharacteristics, getAccessoryPromptFragment]);
 
     useEffect(() => {
         // We use customFullBodyPrompt as the base, and apply activeStyle if needed
@@ -1513,6 +1584,9 @@ ${basePrompt}
                     const fidelityInstruction = modelFidelityOptions[modelFidelity as keyof typeof modelFidelityOptions].promptInstruction;
                     const lengthInstruction = garmentLengthOptions[garmentLength as keyof typeof garmentLengthOptions].promptInstruction;
                     const fitInstruction = garmentFitOptions[garmentFit as keyof typeof garmentFitOptions].promptInstruction;
+                    
+                    const drapeInstruction = garmentDrapeOptions[garmentDrape as keyof typeof garmentDrapeOptions].promptInstruction;
+
                     const fixedAccessoryInstruction = fixedAccessoryOptions[fixedAccessory as keyof typeof fixedAccessoryOptions].promptInstruction;
                     const beltInstruction = beltOptions[belt as keyof typeof beltOptions].promptInstruction;
                     const dynamicAccessoryInstruction = getAccessoryPromptFragment(validAccessories.length);
@@ -1520,6 +1594,7 @@ ${basePrompt}
                     const activeInstructions = [
                         lengthInstruction,
                         fitInstruction,
+                        drapeInstruction, // Include here too
                         fixedAccessoryInstruction,
                         beltInstruction,
                         dynamicAccessoryInstruction,
@@ -1566,7 +1641,7 @@ ${finalStylingInstructions}
         }
     }, [
         modelImage, outfitImage, backOutfitImage, accessoryImages, aspectRatio, modelMeasurements, modelFidelity, 
-        garmentLength, garmentFit, fixedAccessory, belt, garmentLengthCm, getIsGenerationPossible, outfitCategory,
+        garmentLength, garmentFit, garmentDrape, fixedAccessory, belt, garmentLengthCm, getIsGenerationPossible, outfitCategory,
         finalFullBodyPrompt, finalFullBodyBackPrompt, buildFullBodyPrompt, personalMannequins
     ]);
 
@@ -2214,6 +2289,17 @@ Return only the newly generated image reflecting this change.`;
                                         <div className="grid grid-cols-3 gap-2">
                                             {Object.entries(garmentFitOptions).map(([id, { name }]) => (
                                                 <button key={id} onClick={() => setGarmentFit(id)} className={`w-full px-3 py-2 text-xs font-semibold rounded-md transition-colors duration-200 ${garmentFit === id ? 'bg-indigo-600 text-white' : 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300'}`}>
+                                                    {name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {/* New Drape Section */}
+                                    <div>
+                                        <h4 className="text-md font-medium text-zinc-300 mb-3 text-center">Caída / Silueta (Betty's Physics)</h4>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {Object.entries(garmentDrapeOptions).map(([id, { name }]) => (
+                                                <button key={id} onClick={() => setGarmentDrape(id)} className={`w-full px-3 py-2 text-xs font-semibold rounded-md transition-colors duration-200 ${garmentDrape === id ? 'bg-indigo-600 text-white' : 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300'}`}>
                                                     {name}
                                                 </button>
                                             ))}
